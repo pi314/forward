@@ -16,6 +16,7 @@ $(function () {
         height = $(window).height();
         screen_z = height;
         star_plane = (width + height) * 2;
+        ring_radius = (width + height) / 2;
         console.log(width, height, screen_z);
     });
 
