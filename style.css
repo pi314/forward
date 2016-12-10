@@ -6,7 +6,7 @@ html, body {
     background: black;
 }
 
-#container {
+#app {
     position: relative;
 }
 

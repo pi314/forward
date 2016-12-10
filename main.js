@@ -1,73 +1,83 @@
 $(function () {
-    var width = $(window).width();
-    var height = $(window).height();
-    var screen_z = Math.min(width, height);
-    var star_plane = (width + height) * 2;
-    var stars_per_ring = 20;
-    var gap_between_ring = 10;
-    var ring_radius = (width + height) / 2;
-    console.log(width, height, screen_z);
-
-    var stars = [];
-    var steps = 0;
+    let vm = new Vue({
+        el: '#app',
+        data: {
+            frame_rate: 30,
+            stars: [],
+            width: $(window).width(),
+            height: $(window).height(),
+            steps: 0,
+            proj_info: function (star) {
+                let proj_width = (100 - star.z) / 2 + 20;
+                let proj_top = (star.y * (vm.screen_z / (star.z / 100 * vm.star_plane)) + vm.height / 2);
+                let proj_left = (star.x * (vm.screen_z / (star.z / 100 * vm.star_plane)) + vm.width / 2);
+                if (proj_top < -proj_width || proj_top > vm.height + proj_width
+                        || proj_left < -proj_width || proj_left > vm.width + proj_width) {
+                    star.trash = true;
+                }
+                return {
+                    top: (proj_top - proj_width / 2) + 'px',
+                    left: (proj_left - proj_width / 2) + 'px',
+                    width: proj_width + 'px',
+                    height: proj_width + 'px',
+                    'border-radius': (proj_width / 2) + 'px',
+                    opacity: 1 - (star.z / 100),
+                };
+            },
+        },
+        computed: {
+            screen_z: function () {
+                return Math.min(vm.width, vm.height);
+            },
+            star_plane: function () {
+                return (vm.width + vm.height) * 2;
+            },
+            stars_per_ring: function () {
+                return 20;
+            },
+            gap_between_ring: function () {
+                return 10;
+            },
+            ring_radius: function () {
+                return (vm.width + vm.height) / 2;
+            },
+        }
+    });
 
     $(window).resize(function () {
-        width = $(window).width();
-        height = $(window).height();
-        screen_z = Math.min(width, height);
-        star_plane = (width + height) * 2;
-        ring_radius = (width + height) / 2;
-        console.log(width, height, screen_z);
+        vm.width = $(window).width();
+        vm.height = $(window).height();
     });
 
     function generate_stars () {
-        for (var i = 0; i < stars_per_ring; i++) {
-            stars.push({
-                dom: $('<div id="star-'+ i +'" class="star">'),
-                x: Math.cos(i / stars_per_ring * 2 * Math.PI) * ring_radius,
-                y: Math.sin(i / stars_per_ring * 2 * Math.PI) * ring_radius,
+        for (var i = 0; i < vm.stars_per_ring; i++) {
+            vm.stars.push({
+                x: Math.cos(i / vm.stars_per_ring * 2 * Math.PI) * vm.ring_radius,
+                y: Math.sin(i / vm.stars_per_ring * 2 * Math.PI) * vm.ring_radius,
                 z: 100,
                 trash: false,
             });
-            $('#container').append(stars[stars.length - 1].dom);
         }
     }
 
     function animate () {
-        steps = (steps + 1) % gap_between_ring;
-        if (steps == 0) {
+        vm.steps = (vm.steps + 1) % vm.gap_between_ring;
+        if (vm.steps == 0) {
             generate_stars();
         }
 
-        stars.forEach(function (star) {
+        vm.stars.forEach(function (star) {
             star.z -= 1;
-            var proj_top = star.y * (screen_z / (star.z / 100 * star_plane)) + height / 2;
-            var proj_left = star.x * (screen_z / (star.z / 100 * star_plane)) + width / 2;
-            if (proj_top < -50 || proj_top > height + 50 ||
-                    proj_left < -50 || proj_left > width + 50) {
-                star.trash = true;
-                star.dom.remove();
-            } else {
-                var proj_width = (100 - star.z) / 2 + 20;
-                star.dom.css({
-                    top: proj_top - proj_width / 2,
-                    left: proj_left - proj_width / 2,
-                    width: proj_width,
-                    height: proj_width,
-                    'border-radius': proj_width / 2,
-                    opacity: 1 - (star.z / 100),
-                });
-            }
         });
 
-        stars = stars.filter(function (x) {
+        vm.stars = vm.stars.filter(function (x) {
             return !x.trash;
         });
 
-        setTimeout(animate, 30);
+        setTimeout(animate, vm.frame_rate);
     }
 
     generate_stars();
 
-    setTimeout(animate, 1);
+    setTimeout(animate, vm.frame_rate);
 });
