@@ -1,7 +1,7 @@
 $(function () {
     var width = $(window).width();
     var height = $(window).height();
-    var screen_z = height;
+    var screen_z = Math.min(width, height);
     var star_plane = (width + height) * 2;
     var stars_per_ring = 20;
     var gap_between_ring = 10;
@@ -14,7 +14,7 @@ $(function () {
     $(window).resize(function () {
         width = $(window).width();
         height = $(window).height();
-        screen_z = height;
+        screen_z = Math.min(width, height);
         star_plane = (width + height) * 2;
         ring_radius = (width + height) / 2;
         console.log(width, height, screen_z);
