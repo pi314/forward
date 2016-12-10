@@ -3,6 +3,9 @@ $(function () {
     var height = $(window).height();
     var screen_z = height;
     var star_plane = (width + height) * 2;
+    var stars_per_ring = 20;
+    var gap_between_ring = 10;
+    var ring_radius = (width + height) / 2;
     console.log(width, height, screen_z);
 
     var stars = [];
@@ -17,12 +20,11 @@ $(function () {
     });
 
     function generate_stars () {
-        for (var i = 0; i < 50; i++) {
-            var theta = Math.random();
+        for (var i = 0; i < stars_per_ring; i++) {
             stars.push({
                 dom: $('<div id="star-'+ i +'" class="star">'),
-                x: Math.cos(theta * 2 * Math.PI) * (width + height) / 2,
-                y: Math.sin(theta * 2 * Math.PI) * (width + height) / 2,
+                x: Math.cos(i / stars_per_ring * 2 * Math.PI) * ring_radius,
+                y: Math.sin(i / stars_per_ring * 2 * Math.PI) * ring_radius,
                 z: 100,
                 trash: false,
             });
@@ -31,7 +33,7 @@ $(function () {
     }
 
     function animate () {
-        steps = (steps + 1) % 30;
+        steps = (steps + 1) % gap_between_ring;
         if (steps == 0) {
             generate_stars();
         }
