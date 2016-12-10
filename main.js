@@ -9,10 +9,12 @@ $(function () {
             steps: 0,
             proj_info: function (star) {
                 let proj_width = (100 - star.z) / 2 + 20;
-                let proj_top = (star.y * (vm.screen_z / (star.z / 100 * vm.star_plane)) + vm.height / 2);
-                let proj_left = (star.x * (vm.screen_z / (star.z / 100 * vm.star_plane)) + vm.width / 2);
-                if (proj_top < -proj_width || proj_top > vm.height + proj_width
-                        || proj_left < -proj_width || proj_left > vm.width + proj_width) {
+                let proj_x = Math.cos(star.theta) * vm.ring_radius;
+                let proj_y = Math.sin(star.theta) * vm.ring_radius;
+                let proj_top = (proj_y * (vm.screen_z / (star.z / 100 * vm.star_plane)) + vm.height / 2);
+                let proj_left = (proj_x * (vm.screen_z / (star.z / 100 * vm.star_plane)) + vm.width / 2);
+                if (proj_top < -vm.width || proj_top > vm.height * 2
+                        || proj_left < -vm.width || proj_left > vm.width * 2) {
                     star.trash = true;
                 }
                 return {
@@ -52,8 +54,7 @@ $(function () {
     function generate_stars () {
         for (var i = 0; i < vm.stars_per_ring; i++) {
             vm.stars.push({
-                x: Math.cos(i / vm.stars_per_ring * 2 * Math.PI) * vm.ring_radius,
-                y: Math.sin(i / vm.stars_per_ring * 2 * Math.PI) * vm.ring_radius,
+                theta: i / vm.stars_per_ring * 2 * Math.PI,
                 z: 100,
                 trash: false,
             });
