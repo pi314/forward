@@ -47,9 +47,13 @@ $(function () {
                 star.trash = true;
                 star.dom.remove();
             } else {
+                var proj_width = (100 - star.z) / 2 + 20;
                 star.dom.css({
-                    top: proj_top,
-                    left: proj_left,
+                    top: proj_top - proj_width / 2,
+                    left: proj_left - proj_width / 2,
+                    width: proj_width,
+                    height: proj_width,
+                    'border-radius': proj_width / 2,
                     opacity: 1 - (star.z / 100),
                 });
             }
