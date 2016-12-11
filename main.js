@@ -11,21 +11,23 @@ $(function () {
             stars: [],
             width: $(window).width(),
             height: $(window).height(),
-            bend_angle_x: 0,
-            bend_angle_y: 0,
+            bend_phase: 0,
+            bend_rate: 0,
             warp_rate: 1.5,
             proj_info: function (star) {
-                let bend_radius_x = Math.sin(-vm.bend_angle_x) * vm.star_plane;
-                let bend_z_angle_x = 2 * vm.bend_angle_x * star.z / 100;
-                let proj_x = (Math.cos(star.theta) * vm.ring_radius +
-                              bend_radius_x) *
-                              Math.cos(bend_z_angle_x) - bend_radius_x;
+                let proj_x = Math.cos(star.theta) * vm.ring_radius;
+                let proj_y = Math.sin(star.theta) * vm.ring_radius;
 
-                let bend_radius_y = Math.sin(-vm.bend_angle_y) * vm.star_plane;
-                let bend_z_angle_y = 2 * vm.bend_angle_y * star.z / 100;
-                let proj_y = (Math.sin(star.theta) * vm.ring_radius +
-                              bend_radius_y) *
-                              Math.cos(bend_z_angle_y) - bend_radius_y;
+                if (vm.bend_rate) {
+                    let bend_radius = vm.star_plane / Math.sin(vm.bend_rate) +
+                                    vm.ring_radius * Math.cos(star.theta - vm.bend_phase);
+                    let bend_angle = 2 * vm.bend_rate * star.z / 100;
+                    let zoom_rate = (1 - Math.cos(bend_angle));
+                    let x0 = bend_radius * Math.cos(vm.bend_phase);
+                    let y0 = bend_radius * Math.sin(vm.bend_phase);
+                    proj_x += x0 * zoom_rate;
+                    proj_y += y0 * zoom_rate;
+                }
 
                 let proj_top = (proj_y * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.height / 2);
                 let proj_left = (proj_x * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.width / 2);
@@ -56,7 +58,7 @@ $(function () {
                 return Math.min(vm.width, vm.height);
             },
             bend_limit: function () {
-                return Math.atan(vm.width / 2, screen);
+                return Math.atan2(vm.width / 2, vm.screen);
             },
         }
     });
@@ -67,10 +69,12 @@ $(function () {
     });
 
     $(window).mousemove(function (evt) {
-        let mouse_x = evt.clientX - vm.width / 2;
-        let mouse_y = evt.clientY - vm.height / 2;
-        vm.bend_angle_x = (mouse_x / vm.width / vm.warp_rate) * vm.bend_limit;
-        vm.bend_angle_y = (mouse_y / vm.height / vm.warp_rate) * vm.bend_limit;
+        let m_x = evt.clientX - vm.width / 2;
+        let m_y = evt.clientY - vm.height / 2;
+        vm.bend_phase = Math.atan2(m_y, m_x);
+        vm.bend_rate = Math.sqrt(m_x * m_x + m_y * m_y) /
+                       Math.sqrt(vm.width * vm.width + vm.height * vm.height) *
+                       vm.bend_limit;
     });
 
     function next_step (ring_num) {
