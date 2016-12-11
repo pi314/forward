@@ -1,19 +1,23 @@
 $(function () {
+    let mouse_x = 0;
+    let mouse_y = 0;
+    let aprx_x = 0;
+    let aprx_y = 0;
+    let smooth_rate = 5;
+    let frame_rate = 30;
+    let frame_per_rings = 10;
+    let frame_num = 0;
+    let ring_pattern_period = 5;
+    let stars_per_ring = 20;
+    let ring_num = 0;
     let vm = new Vue({
         el: '#app',
         data: {
-            frame_rate: 30,
-            frame_per_rings: 10,
-            frame_num: 0,
-            ring_pattern_period: 5,
-            ring_num: 0,
-            stars_per_ring: 20,
             stars: [],
             width: $(window).width(),
             height: $(window).height(),
             bend_phase: 0,
             bend_rate: 0,
-            warp_rate: 1.5,
             proj_info: function (star) {
                 let proj_x = Math.cos(star.theta) * vm.ring_radius;
                 let proj_y = Math.sin(star.theta) * vm.ring_radius;
@@ -69,20 +73,16 @@ $(function () {
     });
 
     $(window).mousemove(function (evt) {
-        let m_x = evt.clientX - vm.width / 2;
-        let m_y = evt.clientY - vm.height / 2;
-        vm.bend_phase = Math.atan2(m_y, m_x);
-        vm.bend_rate = Math.sqrt(m_x * m_x + m_y * m_y) /
-                       Math.sqrt(vm.width * vm.width + vm.height * vm.height) *
-                       vm.bend_limit;
+        mouse_x = evt.clientX - vm.width / 2;
+        mouse_y = evt.clientY - vm.height / 2;
     });
 
     function next_step (ring_num) {
-        for (var i = 0; i < vm.stars_per_ring; i++) {
+        for (var i = 0; i < stars_per_ring; i++) {
             vm.stars.push({
-                theta: (i / vm.stars_per_ring) * 2 * Math.PI,
-                // theta: ((i + (ring_num / vm.ring_pattern_period)) / vm.stars_per_ring) * 2 * Math.PI,
-                // theta: ((i) / vm.stars_per_ring) * 2 * Math.PI + vm.mouse_theta,
+                theta: (i / stars_per_ring) * 2 * Math.PI,
+                // theta: ((i + (ring_num / ring_pattern_period)) / stars_per_ring) * 2 * Math.PI,
+                // theta: ((i) / stars_per_ring) * 2 * Math.PI + vm.mouse_theta,
                 z: 100,
                 trash: false,
             });
@@ -90,10 +90,17 @@ $(function () {
     }
 
     function animate () {
-        vm.frame_num = (vm.frame_num + 1) % vm.frame_per_rings;
-        if (vm.frame_num == 0) {
-            vm.ring_num = (vm.ring_num + 1) % vm.ring_pattern_period;
-            next_step(vm.ring_num);
+        aprx_x = aprx_x + (mouse_x - aprx_x) / smooth_rate;
+        aprx_y = aprx_y + (mouse_y - aprx_y) / smooth_rate;
+        vm.bend_phase = Math.atan2(aprx_y, aprx_x);
+        vm.bend_rate = Math.sqrt(aprx_x * aprx_x + aprx_y * aprx_y) /
+                       Math.sqrt(vm.width * vm.width + vm.height * vm.height) *
+                       vm.bend_limit;
+
+        frame_num = (frame_num + 1) % frame_per_rings;
+        if (frame_num == 0) {
+            ring_num = (ring_num + 1) % ring_pattern_period;
+            next_step(ring_num);
         }
 
         vm.stars.forEach(function (star) {
@@ -104,8 +111,8 @@ $(function () {
             return !x.trash;
         });
 
-        setTimeout(animate, vm.frame_rate);
+        setTimeout(animate, frame_rate);
     }
 
-    setTimeout(animate, vm.frame_rate);
+    setTimeout(animate, frame_rate);
 });
