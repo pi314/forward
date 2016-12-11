@@ -24,7 +24,8 @@ $(function () {
 
                 if (vm.bend_rate) {
                     let bend_radius = vm.star_plane / Math.sin(vm.bend_rate) +
-                                    vm.ring_radius * Math.cos(star.theta - vm.bend_phase);
+                                      vm.ring_radius *
+                                      Math.cos(star.theta - vm.bend_phase);
                     let bend_angle = 2 * vm.bend_rate * star.z / 100;
                     let zoom_rate = (1 - Math.cos(bend_angle));
                     let x0 = bend_radius * Math.cos(vm.bend_phase);
@@ -33,8 +34,8 @@ $(function () {
                     proj_y += y0 * zoom_rate;
                 }
 
-                let proj_top = (proj_y * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.height / 2);
-                let proj_left = (proj_x * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.width / 2);
+                let proj_top = proj_y * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.height / 2;
+                let proj_left = proj_x * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.width / 2;
                 let proj_width = (100 - star.z) / 2 + 20;
                 if (proj_top < -vm.width || proj_top > vm.height * 2
                         || proj_left < -vm.width || proj_left > vm.width * 2
@@ -81,8 +82,6 @@ $(function () {
         for (var i = 0; i < stars_per_ring; i++) {
             vm.stars.push({
                 theta: (i / stars_per_ring) * 2 * Math.PI,
-                // theta: ((i + (ring_num / ring_pattern_period)) / stars_per_ring) * 2 * Math.PI,
-                // theta: ((i) / stars_per_ring) * 2 * Math.PI + vm.mouse_theta,
                 z: 100,
                 trash: false,
             });
