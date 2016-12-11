@@ -11,6 +11,8 @@ $(function () {
             stars: [],
             width: $(window).width(),
             height: $(window).height(),
+            bend_x: 0,
+            bend_y: 0,
             proj_info: function (star) {
                 let proj_width = (100 - star.z) / 2 + 20;
                 let proj_x = Math.cos(star.theta) * vm.ring_radius;
@@ -32,6 +34,18 @@ $(function () {
                 };
             },
         },
+        methods: {
+            test: function () {
+                return {
+                    width: '5px',
+                    height: '5px',
+                    background: 'white',
+                    position: 'absolute',
+                    top: (vm.bend_y * vm.ring_radius + vm.height / 2) + 'px',
+                    left: (vm.bend_x * vm.ring_radius + vm.width / 2) + 'px',
+                };
+            },
+        },
         computed: {
             screen_z: function () {
                 return Math.min(vm.width, vm.height);
@@ -50,10 +64,20 @@ $(function () {
         vm.height = $(window).height();
     });
 
+    $(window).mousemove(function (evt) {
+        let mouse_x = evt.clientX - vm.width / 2;
+        let mouse_y = evt.clientY - vm.height / 2;
+        let upper_bound = Math.max(vm.width, vm.height);
+        vm.bend_x = mouse_x / upper_bound;
+        vm.bend_y = mouse_y / upper_bound;
+    });
+
     function next_step (ring_num) {
         for (var i = 0; i < vm.stars_per_ring; i++) {
             vm.stars.push({
-                theta: ((i + (ring_num / vm.ring_pattern_period)) / vm.stars_per_ring) * 2 * Math.PI,
+                theta: (i / vm.stars_per_ring) * 2 * Math.PI,
+                // theta: ((i + (ring_num / vm.ring_pattern_period)) / vm.stars_per_ring) * 2 * Math.PI,
+                // theta: ((i) / vm.stars_per_ring) * 2 * Math.PI + vm.mouse_theta,
                 z: 100,
                 trash: false,
             });
