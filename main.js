@@ -10,6 +10,12 @@ $(function () {
     let ring_pattern_period = 5;
     let stars_per_ring = 20;
     let ring_num = 0;
+
+    let speed_min = 0;
+    let speed_max = 1;
+    let speed = speed_max;
+    let breaking = false;
+
     let vm = new Vue({
         el: '#app',
         data: {
@@ -67,8 +73,8 @@ $(function () {
             },
             star_size: function () {
                 return vm.ring_radius / 40;
-            }
-        }
+            },
+        },
     });
 
     $(window).resize(function () {
@@ -81,7 +87,16 @@ $(function () {
         mouse_y = evt.clientY - vm.height / 2;
     });
 
-    function next_step (ring_num) {
+    $(window).keyup(function (evt) {
+        if (evt.which == 32) {
+            breaking = !breaking;
+            if (!breaking && speed == speed_min) {
+                setTimeout(animate, frame_rate);
+            }
+        }
+    });
+
+    function new_ring (ring_num) {
         for (var i = 0; i < stars_per_ring; i++) {
             vm.stars.push({
                 theta: (i / stars_per_ring) * 2 * Math.PI,
@@ -102,18 +117,28 @@ $(function () {
         frame_num = (frame_num + 1) % frame_per_rings;
         if (frame_num == 0) {
             ring_num = (ring_num + 1) % ring_pattern_period;
-            next_step(ring_num);
+            new_ring(ring_num);
         }
 
         vm.stars.forEach(function (star) {
-            star.z -= 1;
+            star.z -= speed;
         });
 
         vm.stars = vm.stars.filter(function (x) {
             return !x.trash;
         });
 
-        setTimeout(animate, frame_rate);
+        if (breaking) {
+            speed -= 0.1;
+            speed = (speed < speed_min) ? speed_min : speed;
+        } else {
+            speed += 0.1;
+            speed = (speed > speed_max) ? speed_max : speed;
+        }
+
+        if (speed > speed_min) {
+            setTimeout(animate, frame_rate);
+        }
     }
 
     setTimeout(animate, frame_rate);
