@@ -1,19 +1,29 @@
 $(function () {
-    let mouse_x = 0;
-    let mouse_y = 0;
-    let aprx_x = 0;
-    let aprx_y = 0;
-    let smooth_rate = 5;
+    let mouse = {
+        x: 0, y: 0,
+        ex: 0, ey: 0,
+    };
+
+    let smooth = {
+        min: 5,
+        max: 50,
+        delta: 5,
+        rate: 5,
+    };
+
+    let speed = {
+        min: 0,
+        max: 1,
+        value: 1,
+        delta: 0.1,
+    };
+
     let frame_rate = 30;
-    let frame_per_rings = 10;
+    let frame_per_ring = 10;
     let frame_num = 0;
-    let ring_pattern_period = 5;
+    let period_per_ring = 5;
     let stars_per_ring = 20;
     let ring_num = 0;
-
-    let speed_min = 0;
-    let speed_max = 1;
-    let speed = speed_max;
     let breaking = false;
 
     let vm = new Vue({
@@ -83,14 +93,14 @@ $(function () {
     });
 
     $(window).mousemove(function (evt) {
-        mouse_x = evt.clientX - vm.width / 2;
-        mouse_y = evt.clientY - vm.height / 2;
+        mouse.x = evt.clientX - vm.width / 2;
+        mouse.y = evt.clientY - vm.height / 2;
     });
 
     $(window).keyup(function (evt) {
         if (evt.which == 32) {
             breaking = !breaking;
-            if (!breaking && speed == speed_min) {
+            if (!breaking && speed.value == speed.min) {
                 setTimeout(animate, frame_rate);
             }
         }
@@ -107,21 +117,21 @@ $(function () {
     }
 
     function animate () {
-        aprx_x = aprx_x + (mouse_x - aprx_x) / smooth_rate;
-        aprx_y = aprx_y + (mouse_y - aprx_y) / smooth_rate;
-        vm.bend_phase = Math.atan2(aprx_y, aprx_x);
-        vm.bend_rate = Math.sqrt(aprx_x * aprx_x + aprx_y * aprx_y) /
+        mouse.ex = mouse.ex + (mouse.x - mouse.ex) / smooth.rate;
+        mouse.ey = mouse.ey + (mouse.y - mouse.ey) / smooth.rate;
+        vm.bend_phase = Math.atan2(mouse.ey, mouse.ex);
+        vm.bend_rate = Math.sqrt(mouse.ex * mouse.ex + mouse.ey * mouse.ey) /
                        Math.sqrt(vm.width * vm.width + vm.height * vm.height) *
                        vm.bend_limit;
 
-        frame_num = (frame_num + 1) % frame_per_rings;
+        frame_num = (frame_num + 1) % frame_per_ring;
         if (frame_num == 0) {
-            ring_num = (ring_num + 1) % ring_pattern_period;
+            ring_num = (ring_num + 1) % period_per_ring;
             new_ring(ring_num);
         }
 
         vm.stars.forEach(function (star) {
-            star.z -= speed;
+            star.z -= speed.value;
         });
 
         vm.stars = vm.stars.filter(function (x) {
@@ -129,14 +139,18 @@ $(function () {
         });
 
         if (breaking) {
-            speed -= 0.1;
-            speed = (speed < speed_min) ? speed_min : speed;
+            speed.value -= speed.delta;
+            speed.value = (speed.value < speed.min) ? speed.min : speed.value;
+            smooth.rate += smooth.delta;
+            smooth.rate = (smooth.rate > smooth.max) ? smooth.max : smooth.rate;
         } else {
-            speed += 0.1;
-            speed = (speed > speed_max) ? speed_max : speed;
+            speed.value += speed.delta;
+            speed.value = (speed.value > speed.max) ? speed.max : speed.value;
+            smooth.rate -= smooth.delta;
+            smooth.rate = (smooth.rate < smooth.min) ? smooth.min : smooth.rate;
         }
 
-        if (speed > speed_min) {
+        if (speed.value > speed.min) {
             setTimeout(animate, frame_rate);
         }
     }
