@@ -7,7 +7,7 @@ $(function () {
     let smooth = {
         min: 5,
         max: 50,
-        delta: 5,
+        delta: 3,
         rate: 5,
     };
 
@@ -18,12 +18,17 @@ $(function () {
         delta: 0.1,
     };
 
-    let frame_rate = 30;
+    let rotate = {
+        period: 4,
+        offset: 0,
+        direction: 0,
+    };
+
+    let frame_interval = 30;
     let frame_per_ring = 10;
-    let frame_num = 0;
-    let period_per_ring = 5;
     let stars_per_ring = 20;
-    let ring_num = 0;
+
+    let frame_id = 0;
     let breaking = false;
 
     let vm = new Vue({
@@ -50,8 +55,8 @@ $(function () {
                     proj_y += y0 * zoom_rate;
                 }
 
-                let proj_top = proj_y * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.height / 2;
-                let proj_left = proj_x * (vm.screen / (star.z / 100 * vm.star_plane)) + vm.width / 2;
+                let proj_top = proj_y * (vm.screen_size_ind / (star.z / 100 * vm.star_plane)) + vm.height / 2;
+                let proj_left = proj_x * (vm.screen_size_ind / (star.z / 100 * vm.star_plane)) + vm.width / 2;
                 let proj_width = (100 - star.z) / 2 + vm.star_size;
                 if (proj_top < -vm.width || proj_top > vm.height * 2
                         || proj_left < -vm.width || proj_left > vm.width * 2
@@ -69,7 +74,7 @@ $(function () {
             },
         },
         computed: {
-            screen: function () {
+            screen_size_ind: function () {
                 return Math.min(vm.width, vm.height);
             },
             star_plane: function () {
@@ -79,7 +84,7 @@ $(function () {
                 return Math.min(vm.width, vm.height);
             },
             bend_limit: function () {
-                return Math.atan2(vm.width / 2, vm.screen);
+                return Math.atan2(vm.width / 2, vm.screen_size_ind);
             },
             star_size: function () {
                 return vm.ring_radius / 40;
@@ -98,22 +103,39 @@ $(function () {
     });
 
     $(window).keyup(function (evt) {
-        if (evt.which == 32) {
-            breaking = !breaking;
-            if (!breaking && speed.value == speed.min) {
-                setTimeout(animate, frame_rate);
+        console.log(evt.which);
+        switch (evt.which) {
+            case 32: {
+                breaking = !breaking;
+                if (!breaking && speed.value == speed.min) {
+                    setTimeout(animate, frame_interval);
+                }
+                break;
+            }
+            case 37: {
+                rotate.direction -= 1;
+                rotate.direction = (rotate.direction < -1) ? -1 : rotate.direction;
+                break;
+            }
+            case 39: {
+                rotate.direction += 1;
+                rotate.direction = (rotate.direction > 1) ? 1 : rotate.direction;
+                break;
             }
         }
     });
 
-    function new_ring (ring_num) {
+    function new_ring () {
+        let unit = 1 / stars_per_ring;
         for (var i = 0; i < stars_per_ring; i++) {
             vm.stars.push({
-                theta: (i / stars_per_ring) * 2 * Math.PI,
+                theta: (unit * (i + rotate.offset / rotate.period)) * 2 * Math.PI,
                 z: 100,
                 trash: false,
             });
         }
+
+        rotate.offset = (rotate.offset + rotate.direction) % rotate.period;
     }
 
     function animate () {
@@ -124,10 +146,9 @@ $(function () {
                        Math.sqrt(vm.width * vm.width + vm.height * vm.height) *
                        vm.bend_limit;
 
-        frame_num = (frame_num + 1) % frame_per_ring;
-        if (frame_num == 0) {
-            ring_num = (ring_num + 1) % period_per_ring;
-            new_ring(ring_num);
+        frame_id = (frame_id + 1) % frame_per_ring;
+        if (frame_id == 0) {
+            new_ring();
         }
 
         vm.stars.forEach(function (star) {
@@ -151,9 +172,9 @@ $(function () {
         }
 
         if (speed.value > speed.min) {
-            setTimeout(animate, frame_rate);
+            setTimeout(animate, frame_interval);
         }
     }
 
-    setTimeout(animate, frame_rate);
+    setTimeout(animate, frame_interval);
 });
