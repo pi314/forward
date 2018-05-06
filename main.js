@@ -1,7 +1,7 @@
 $(function () {
     let mouse = {
         x: 0, y: 0,
-        ex: 0, ey: 0,
+        ey: 0, ex: 0, // Put ex to the end to prevent vim modeline error
     };
 
     let smooth = {
