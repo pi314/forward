@@ -13,22 +13,26 @@ var camera_speed_max = 1;
 var camera_speed_min = 0;
 var camera_break_delta = 0.02;
 
+var bend_angle_max = 2 * pi / 12;
+
 
 // semi-constants
 var canvas = undefined;
 var canvas_ctx = undefined;
 var winwidth = 0;
 var winheight = 0;
-var zoom_ratio = 0
+var zoom_ratio = 0;
 
 
 // dynamics
 var mouse = {
-    x: undefined,
-    y: undefined,
+    x: 0,
+    y: 0,
     smooth_x: undefined,
     smooth_y: undefined,
     smooth_rate: 5,
+    bend_phase: 0,
+    bend_angle: 0,
 };
 var camera = {
     z: 0,
@@ -37,9 +41,26 @@ var camera = {
 };
 
 
-function Star (theta) {
-    this.x = ring_radius * Math.cos(theta);
-    this.y = ring_radius * Math.sin(theta);
+if (!Math.hypot) Math.hypot = function (x, y) {
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=896264#c28
+    var max = 0;
+    var s = 0;
+    for (var i = 0; i < arguments.length; i += 1) {
+        var arg = Math.abs(Number(arguments[i]));
+        if (arg > max) {
+            s *= (max / arg) * (max / arg);
+            max = arg;
+        }
+        s += arg === 0 && max === 0 ? 0 : (arg / max) * (arg / max);
+    }
+    return max === 1 / 0 ? 1 / 0 : max * Math.sqrt(s);
+};
+
+
+function Star (phase) {
+    this.phase = phase;
+    this.x = ring_radius * Math.cos(phase);
+    this.y = ring_radius * Math.sin(phase);
     this.valid = true;
 }
 
@@ -77,19 +98,38 @@ function draw_star (z, star) {
         return;
     }
 
-    let proj_x = zoom_ratio * project(star.x, z) + (winwidth / 2);
-    let proj_y = zoom_ratio * project(star.y, z) + (winheight / 2);
-    let proj_r = zoom_ratio * project(star_radius, z);
+    let proj_x = star.x;
+    let proj_y = star.y;
+    let proj_z = z;
+    let proj_r = star_radius;
 
-    if (z >= 0) {
-        var alpha = (1 - (z / farest_z)) * max_brightness;
+    if (mouse.bend_angle) {
+        let bend_radius =
+            farest_z / mouse.bend_angle -
+            ring_radius * Math.cos(star.phase - mouse.bend_phase);
+        let star_bend_angle = mouse.bend_angle * z / farest_z;
+        proj_x += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.cos(mouse.bend_phase);
+        proj_y += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.sin(mouse.bend_phase);
+        proj_z = bend_radius * Math.sin(star_bend_angle);
+    }
+
+    proj_x = project(proj_x, proj_z);
+    proj_y = project(proj_y, proj_z);
+    proj_r = project(proj_r, proj_z);
+
+    if (proj_z >= 0) {
+        var alpha = (1 - (proj_z / farest_z)) * max_brightness;
     } else {
         var alpha = max_brightness;
     }
     var color = 'rgb(0, 255, 255, ' + alpha + ')';
 
     canvas_ctx.beginPath();
-    canvas_ctx.arc(proj_x, proj_y, proj_r, 0, pi * 2, true);
+    canvas_ctx.arc(
+        zoom_ratio * proj_x + (winwidth / 2),
+        zoom_ratio * proj_y + (winheight / 2),
+        zoom_ratio * proj_r,
+        0, pi * 2, true);
     canvas_ctx.closePath();
     canvas_ctx.fillStyle = color;
     canvas_ctx.fill();
@@ -150,6 +190,7 @@ $(function () {
         canvas_ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         canvas_ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // update mouse related values
         if (mouse.smooth_x === undefined) {
             mouse.smooth_x = mouse.x;
             mouse.smooth_y = mouse.y;
@@ -157,6 +198,11 @@ $(function () {
             mouse.smooth_x += (mouse.x - mouse.smooth_x) / mouse.smooth_rate;
             mouse.smooth_y += (mouse.y - mouse.smooth_y) / mouse.smooth_rate;
         }
+
+        mouse.bend_phase = Math.atan2(mouse.smooth_y, mouse.smooth_x);
+        mouse.bend_angle = Math.hypot(mouse.smooth_x, mouse.smooth_y) /
+            Math.hypot(winwidth / 2, winheight / 2) *
+            bend_angle_max;
 
         if (camera.speed < camera_speed_min) {
             camera.speed = camera_speed_min;
@@ -188,12 +234,6 @@ $(function () {
             }
             camera.z = 0;
         }
-
-canvas_ctx.beginPath();
-canvas_ctx.arc(mouse.smooth_x + (winwidth / 2), mouse.smooth_y + (winheight / 2), 3, 0, pi * 2, true);
-canvas_ctx.closePath();
-canvas_ctx.fillStyle = 'white';
-canvas_ctx.fill();
 
         raf = window.requestAnimationFrame(draw_animation_frame);
     }
