@@ -24,8 +24,11 @@ var zoom_ratio = 0
 
 // dynamics
 var mouse = {
-    x: 0,
-    y: 0,
+    x: undefined,
+    y: undefined,
+    smooth_x: undefined,
+    smooth_y: undefined,
+    smooth_rate: 5,
 };
 var camera = {
     z: 0,
@@ -69,7 +72,7 @@ function project (value, z) {
 
 
 function draw_star (z, star) {
-    if (z < proj_plane_z) {
+    if (z < 0) {
         star.valid = false;
         return;
     }
@@ -147,6 +150,14 @@ $(function () {
         canvas_ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         canvas_ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        if (mouse.smooth_x === undefined) {
+            mouse.smooth_x = mouse.x;
+            mouse.smooth_y = mouse.y;
+        } else {
+            mouse.smooth_x += (mouse.x - mouse.smooth_x) / mouse.smooth_rate;
+            mouse.smooth_y += (mouse.y - mouse.smooth_y) / mouse.smooth_rate;
+        }
+
         if (camera.speed < camera_speed_min) {
             camera.speed = camera_speed_min;
         } else if (camera.breaking && camera.speed > camera_speed_min) {
@@ -177,6 +188,12 @@ $(function () {
             }
             camera.z = 0;
         }
+
+canvas_ctx.beginPath();
+canvas_ctx.arc(mouse.smooth_x + (winwidth / 2), mouse.smooth_y + (winheight / 2), 3, 0, pi * 2, true);
+canvas_ctx.closePath();
+canvas_ctx.fillStyle = 'white';
+canvas_ctx.fill();
 
         raf = window.requestAnimationFrame(draw_animation_frame);
     }
