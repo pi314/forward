@@ -172,6 +172,11 @@ $(function () {
         mouse.y = e.clientY - winheight / 2;
     });
 
+    canvas.addEventListener('touchmove', function (e) {
+        mouse.x = e.changedTouches[0].pageX - winwidth / 2;
+        mouse.y = e.changedTouches[0].pageY - winheight / 2;
+    });
+
     $(window).keyup(function (e) {
         console.log('keyup', e.which);
         switch (e.which) {
