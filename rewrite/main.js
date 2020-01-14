@@ -1,6 +1,8 @@
 // constants
 var stars_per_ring = 20;
+var tube_twist_scales = 5;
 var pi = Math.PI;
+var tau = 2 * pi;
 var farest_z = 120;
 var proj_plane_z = 25;
 var ring_radius = 10;
@@ -35,9 +37,13 @@ var mouse = {
     bend_angle: 0,
 };
 var camera = {
-    z: 0,
+    offset: 0,
     speed: camera_speed_max,
     breaking: false,
+};
+var tube = {
+    twist_phase: 0,
+    twist_dir: 0,
 };
 
 
@@ -57,27 +63,36 @@ if (!Math.hypot) Math.hypot = function (x, y) {
 };
 
 
-function Star (phase) {
-    this.phase = phase;
-    this.x = ring_radius * Math.cos(phase);
-    this.y = ring_radius * Math.sin(phase);
+function Star (phase_base) {
+    this.phase_base = phase_base;
+    this.phase = this.phase_base + tube.twist_phase;
+    this.x = ring_radius * Math.cos(this.phase);
+    this.y = ring_radius * Math.sin(this.phase);
     this.valid = true;
+
+    this.renew = function () {
+        this.valid = true;
+        this.phase = this.phase_base + tube.twist_phase;
+        this.x = ring_radius * Math.cos(this.phase);
+        this.y = ring_radius * Math.sin(this.phase);
+    };
 }
 
 
-function Ring (z) {
+function Ring () {
     this.stars = [];
-    this.z = z;
+    this.z = farest_z;
     this.valid = true;
 
     this.move = function () {
         this.z -= camera.speed;
     };
 
-    this.reactivate = function () {
+    this.renew = function () {
+        this.z = farest_z;
         this.valid = true;
         for (let s = 0; s < stars_per_ring; s++) {
-            this.stars[s].valid = true;
+            this.stars[s].renew();
         }
     }
 
@@ -179,11 +194,18 @@ $(function () {
 
     $(window).keyup(function (e) {
         console.log('keyup', e.which);
-        switch (e.which) {
-            case 32: {
-                camera.breaking = !camera.breaking;
-                console.log('breaking:', camera.breaking);
-                break;
+        if (e.which == 32) { // space
+            camera.breaking = !camera.breaking;
+            console.log('breaking:', camera.breaking);
+
+        } else if (e.which == 37) { // left
+            if (tube.twist_dir > -1) {
+                tube.twist_dir -= 1;
+            }
+
+        } else if (e.which == 39) { // right
+            if (tube.twist_dir < 1) {
+                tube.twist_dir += 1;
             }
         }
     });
@@ -222,22 +244,30 @@ $(function () {
             rings[r].move();
         }
 
-        camera.z += camera.speed;
-        if (camera.z >= ring_interval) {
+        camera.offset += camera.speed;
+        if (camera.offset >= ring_interval) {
             let reuse_ring = false;
+
+            tube.twist_phase += tube.twist_dir * (tau / stars_per_ring / tube_twist_scales);
+            if (tube.twist_phase <= -tau) {
+                tube.twist_phase += tau;
+            }
+            if (tube.twist_phase >= tau) {
+                tube.twist_phase -= tau;
+            }
 
             for (let r = 0; r < rings.length; r++) {
                 if (!rings[r].valid) {
-                    rings[r].z = farest_z;
-                    rings[r].reactivate();
+                    rings[r].renew();
                     reuse_ring = true;
                     break;
                 }
             }
             if (!reuse_ring) {
-                rings.push(new Ring(farest_z));
+                rings.push(new Ring());
             }
-            camera.z = 0;
+
+            camera.offset = 0;
         }
 
         raf = window.requestAnimationFrame(draw_animation_frame);
