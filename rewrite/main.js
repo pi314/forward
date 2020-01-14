@@ -3,7 +3,7 @@ var stars_per_ring = 20;
 var tube_twist_scales = 5;
 var pi = Math.PI;
 var tau = 2 * pi;
-var farest_z = 120;
+var max_z = 120;
 var proj_plane_z = 25;
 var ring_radius = 10;
 var ring_star_radius_ratio = 20;
@@ -11,9 +11,9 @@ var ring_interval = Math.floor(ring_radius * 2 * pi / stars_per_ring * 3);
 var star_radius = ring_radius / ring_star_radius_ratio;
 var max_brightness = 0.9;
 
-var camera_speed_max = 1;
-var camera_speed_min = 0;
-var camera_break_delta = 0.02;
+var tube_speed_max = 1;
+var tube_speed_min = 0;
+var tube_speed_change_rate = 0.02;
 
 var bend_angle_max = 2 * pi / 12;
 
@@ -36,12 +36,10 @@ var mouse = {
     bend_phase: 0,
     bend_angle: 0,
 };
-var camera = {
-    offset: 0,
-    speed: camera_speed_max,
-    breaking: false,
-};
 var tube = {
+    speed: tube_speed_max,
+    offset: 0,
+    breaking: false,
     twist_phase: 0,
     twist_dir: 0,
 };
@@ -81,15 +79,15 @@ function Star (phase_base) {
 
 function Ring () {
     this.stars = [];
-    this.z = farest_z;
+    this.z = max_z;
     this.valid = true;
 
     this.move = function () {
-        this.z -= camera.speed;
+        this.z -= tube.speed;
     };
 
     this.renew = function () {
-        this.z = farest_z;
+        this.z = max_z;
         this.valid = true;
         for (let s = 0; s < stars_per_ring; s++) {
             this.stars[s].renew();
@@ -120,9 +118,9 @@ function draw_star (z, star) {
 
     if (mouse.bend_angle) {
         let bend_radius =
-            farest_z / mouse.bend_angle -
+            max_z / mouse.bend_angle -
             ring_radius * Math.cos(star.phase - mouse.bend_phase);
-        let star_bend_angle = mouse.bend_angle * z / farest_z;
+        let star_bend_angle = mouse.bend_angle * z / max_z;
         proj_x += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.cos(mouse.bend_phase);
         proj_y += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.sin(mouse.bend_phase);
         proj_z = bend_radius * Math.sin(star_bend_angle);
@@ -133,7 +131,7 @@ function draw_star (z, star) {
     proj_r = project(proj_r, proj_z);
 
     if (proj_z >= 0) {
-        var alpha = (1 - (proj_z / farest_z)) * max_brightness;
+        var alpha = (1 - (proj_z / max_z)) * max_brightness;
     } else {
         var alpha = max_brightness;
     }
@@ -195,8 +193,8 @@ $(function () {
     $(window).keyup(function (e) {
         console.log('keyup', e.which);
         if (e.which == 32) { // space
-            camera.breaking = !camera.breaking;
-            console.log('breaking:', camera.breaking);
+            tube.breaking = !tube.breaking;
+            console.log('breaking:', tube.breaking);
 
         } else if (e.which == 37) { // left
             if (tube.twist_dir > -1) {
@@ -231,12 +229,12 @@ $(function () {
             Math.hypot(winwidth / 2, winheight / 2) *
             bend_angle_max;
 
-        if (camera.speed < camera_speed_min) {
-            camera.speed = camera_speed_min;
-        } else if (camera.breaking && camera.speed > camera_speed_min) {
-            camera.speed -= camera_break_delta;
-        } else if (!camera.breaking && camera.speed < camera_speed_max) {
-            camera.speed += camera_break_delta;
+        if (tube.speed < tube_speed_min) {
+            tube.speed = tube_speed_min;
+        } else if (tube.breaking && tube.speed > tube_speed_min) {
+            tube.speed -= tube_speed_change_rate;
+        } else if (!tube.breaking && tube.speed < tube_speed_max) {
+            tube.speed += tube_speed_change_rate;
         }
 
         for (let r = 0; r < rings.length; r++) {
@@ -244,8 +242,8 @@ $(function () {
             rings[r].move();
         }
 
-        camera.offset += camera.speed;
-        if (camera.offset >= ring_interval) {
+        tube.offset += tube.speed;
+        if (tube.offset >= ring_interval) {
             let reuse_ring = false;
 
             tube.twist_phase += tube.twist_dir * (tau / stars_per_ring / tube_twist_scales);
@@ -267,7 +265,7 @@ $(function () {
                 rings.push(new Ring());
             }
 
-            camera.offset = 0;
+            tube.offset = 0;
         }
 
         raf = window.requestAnimationFrame(draw_animation_frame);
