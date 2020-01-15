@@ -3,7 +3,7 @@ var stars_per_ring = 20;
 var tube_twist_scales = 5;
 var pi = Math.PI;
 var tau = 2 * pi;
-var max_z = 120;
+var max_z = 150;
 var proj_plane_z = 25;
 var ring_radius = 10;
 var ring_star_radius_ratio = 20;
@@ -20,6 +20,7 @@ var tube_trailing_opacity_max = 1;
 var tube_trailing_opacity_change_rate = 0.01;
 
 var tube_hue_change_delta = 30;
+var tube_aperture_interval = Math.floor(max_z * 1.5);
 
 var bend_angle_max = 2 * pi / 12;
 
@@ -46,11 +47,14 @@ var tube = {
     trailing: false,
     trailing_opacity: 1,
     speed: tube_speed_max,
-    offset: 0,
+    z: 0,
     breaking: false,
     twist_phase: 0,
     twist_dir: 0,
     hue: 180,
+    aperture: false,
+    aperture_gen_clock: 0,
+    apertube_move_clock: 0,
 };
 
 
@@ -91,6 +95,7 @@ function Ring () {
     this.z = max_z;
     this.valid = true;
     this.hue = tube.hue;
+    this.bright = false;
 
     this.move = function () {
         this.z -= tube.speed;
@@ -103,6 +108,7 @@ function Ring () {
             this.stars[s].renew();
         }
         this.hue = tube.hue;
+        this.bright = false;
     }
 
     for (let s = 0; s < stars_per_ring; s++) {
@@ -141,7 +147,9 @@ function draw_star (ring, star) {
     proj_y = project(proj_y, proj_z);
     proj_r = project(proj_r, proj_z);
 
-    if (proj_z >= 0) {
+    if (ring.bright) {
+        var alpha = 1;
+    } else if (proj_z >= 0) {
         var alpha = (1 - (proj_z / max_z)) * star_max_alpha;
     } else {
         var alpha = star_max_alpha;
@@ -218,6 +226,8 @@ $(function () {
             }
         } else if (e.which == 84) { // trailing
             tube.trailing = !tube.trailing;
+        } else if (e.which == 65) { // aperture
+            tube.aperture = !tube.aperture;
         } else if (e.which == 67) { // color
             tube.hue = (tube.hue + tube_hue_change_delta) % 360;
         }
@@ -265,10 +275,8 @@ $(function () {
             rings[r].move();
         }
 
-        tube.offset += tube.speed;
-        if (tube.offset >= ring_interval) {
-            let reuse_ring = false;
-
+        tube.z += tube.speed;
+        if (tube.z >= ring_interval) {
             tube.twist_phase += tube.twist_dir * (tau / stars_per_ring / tube_twist_scales);
             if (tube.twist_phase <= -tau) {
                 tube.twist_phase += tau;
@@ -277,18 +285,42 @@ $(function () {
                 tube.twist_phase -= tau;
             }
 
-            for (let r = 0; r < rings.length; r++) {
-                if (!rings[r].valid) {
-                    rings[r].renew();
-                    reuse_ring = true;
+            let tail_ring = undefined;
+
+            if (rings.length && !rings[0].valid) {
+                tail_ring = rings.shift();
+                tail_ring.renew();
+            } else {
+                tail_ring = new Ring();
+            }
+
+            rings.push(tail_ring);
+
+            tube.z = 0;
+        }
+
+        tube.apertube_move_clock += tube_speed_max;
+        if (tube.apertube_move_clock >= ring_interval) {
+            for (let i = 0; i < rings.length; i++) {
+                if (rings[i].bright) {
+                    rings[i].bright = false;
+                    if (i > 0) {
+                        rings[i - 1].bright = true;
+                    }
                     break;
                 }
             }
-            if (!reuse_ring) {
-                rings.push(new Ring());
-            }
+            tube.apertube_move_clock = 0;
+        }
 
-            tube.offset = 0;
+        if (tube.aperture) {
+            tube.aperture_gen_clock += tube_speed_max;
+            if (tube.aperture_gen_clock >= tube_aperture_interval) {
+                if (rings.length) {
+                    rings[rings.length - 1].bright = true;
+                }
+                tube.aperture_gen_clock = 0;
+            }
         }
 
         raf = window.requestAnimationFrame(draw_animation_frame);
