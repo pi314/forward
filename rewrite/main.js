@@ -28,8 +28,10 @@ var bend_angle_max = 2 * pi / 12;
 // semi-constants
 var canvas = undefined;
 var canvas_ctx = undefined;
-var winwidth = 0;
-var winheight = 0;
+var winwidth = undefined;
+var winheight = undefined;
+var new_winwidth = undefined;
+var new_winheight = undefined;
 var zoom_ratio = 0;
 
 
@@ -192,12 +194,23 @@ $(function () {
     canvas = document.getElementById('canvas');
     canvas_ctx = canvas.getContext('2d');
 
-    winwidth = window.innerWidth;
-    winheight = window.innerHeight;
-    zoom_ratio = Math.min(winwidth, winheight) / ring_radius;
+    new_winwidth = window.innerWidth;
+    new_winheight = window.innerHeight;
 
-    canvas_ctx.canvas.width  = winwidth;
-    canvas_ctx.canvas.height = winheight;
+    $(window).resize(function () {
+        new_winwidth = window.innerWidth;
+        new_winheight = window.innerHeight;
+    });
+
+    function update_win_size () {
+        winwidth = new_winwidth;
+        winheight = new_winheight;
+        zoom_ratio = Math.min(winwidth, winheight) / ring_radius;
+
+        canvas_ctx.canvas.width  = winwidth;
+        canvas_ctx.canvas.height = winheight;
+    }
+    update_win_size();
 
     canvas.addEventListener('mousemove', function (e) {
         mouse.x = e.clientX - winwidth / 2;
@@ -326,6 +339,10 @@ $(function () {
                 }
             }
             tube.apertube_move_clock = 0;
+
+            if (winwidth != new_winwidth || winheight != new_winheight) {
+                update_win_size();
+            }
         }
 
         if (tube.aperture) {
