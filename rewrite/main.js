@@ -9,7 +9,7 @@ var ring_radius = 10;
 var ring_star_radius_ratio = 20;
 var ring_interval = Math.floor(ring_radius * 2 * pi / stars_per_ring * 3);
 var star_radius = ring_radius / ring_star_radius_ratio;
-var max_brightness = 0.9;
+var star_max_alpha = 0.9;
 
 var tube_speed_max = 1;
 var tube_speed_min = 0;
@@ -18,6 +18,8 @@ var tube_speed_change_rate = 0.02;
 var tube_trailing_opacity_min = 0.3;
 var tube_trailing_opacity_max = 1;
 var tube_trailing_opacity_change_rate = 0.01;
+
+var tube_hue_change_delta = 30;
 
 var bend_angle_max = 2 * pi / 12;
 
@@ -42,12 +44,13 @@ var mouse = {
 };
 var tube = {
     trailing: false,
-    trailing_opacity: 0,
+    trailing_opacity: 1,
     speed: tube_speed_max,
     offset: 0,
     breaking: false,
     twist_phase: 0,
     twist_dir: 0,
+    hue: 180,
 };
 
 
@@ -87,17 +90,19 @@ function Ring () {
     this.stars = [];
     this.z = max_z;
     this.valid = true;
+    this.hue = tube.hue;
 
     this.move = function () {
         this.z -= tube.speed;
     };
 
     this.renew = function () {
-        this.z = max_z;
         this.valid = true;
+        this.z = max_z;
         for (let s = 0; s < stars_per_ring; s++) {
             this.stars[s].renew();
         }
+        this.hue = tube.hue;
     }
 
     for (let s = 0; s < stars_per_ring; s++) {
@@ -111,22 +116,22 @@ function project (value, z) {
 }
 
 
-function draw_star (z, star) {
-    if (z < 0) {
+function draw_star (ring, star) {
+    if (ring.z < 0) {
         star.valid = false;
         return;
     }
 
     let proj_x = star.x;
     let proj_y = star.y;
-    let proj_z = z;
+    let proj_z = ring.z;
     let proj_r = star_radius;
 
     if (mouse.bend_angle) {
         let bend_radius =
             max_z / mouse.bend_angle -
             ring_radius * Math.cos(star.phase - mouse.bend_phase);
-        let star_bend_angle = mouse.bend_angle * z / max_z;
+        let star_bend_angle = mouse.bend_angle * ring.z / max_z;
         proj_x += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.cos(mouse.bend_phase);
         proj_y += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.sin(mouse.bend_phase);
         proj_z = bend_radius * Math.sin(star_bend_angle);
@@ -137,11 +142,11 @@ function draw_star (z, star) {
     proj_r = project(proj_r, proj_z);
 
     if (proj_z >= 0) {
-        var alpha = (1 - (proj_z / max_z)) * max_brightness;
+        var alpha = (1 - (proj_z / max_z)) * star_max_alpha;
     } else {
-        var alpha = max_brightness;
+        var alpha = star_max_alpha;
     }
-    var color = 'rgb(0, 255, 255, ' + alpha + ')';
+    var color = 'hsl(' + ring.hue+ ', 100%, 50%, ' + alpha + ')';
 
     canvas_ctx.beginPath();
     canvas_ctx.arc(
@@ -157,7 +162,7 @@ function draw_star (z, star) {
 
 function draw_ring (ring) {
     for (let s = 0; s < ring.stars.length; s++) {
-        draw_star(ring.z, ring.stars[s]);
+        draw_star(ring, ring.stars[s]);
     }
 
     let has_valid_star = false;
@@ -213,6 +218,8 @@ $(function () {
             }
         } else if (e.which == 84) { // trailing
             tube.trailing = !tube.trailing;
+        } else if (e.which == 67) { // color
+            tube.hue = (tube.hue + tube_hue_change_delta) % 360;
         }
     });
 
