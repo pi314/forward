@@ -56,7 +56,7 @@ var tube = {
     hue: 180,
     aperture: false,
     aperture_gen_clock: 0,
-    apertube_move_clock: 0,
+    aperture_move_clock: 0,
 };
 
 
@@ -359,8 +359,8 @@ $(function () {
             tube.z = 0;
         }
 
-        tube.apertube_move_clock += tube_speed_max;
-        if (tube.apertube_move_clock >= ring_interval) {
+        tube.aperture_move_clock += tube_speed_max;
+        if (tube.aperture_move_clock >= ring_interval) {
             for (let i = 0; i < rings.length; i++) {
                 if (rings[i].bright) {
                     rings[i].bright = false;
@@ -369,7 +369,7 @@ $(function () {
                     }
                 }
             }
-            tube.apertube_move_clock = 0;
+            tube.aperture_move_clock = 0;
 
             if (winwidth != new_winwidth || winheight != new_winheight) {
                 update_win_size();
