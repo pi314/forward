@@ -242,6 +242,7 @@ $(function () {
 
         } else if (e.which == 65) { // aperture
             tube.aperture = !tube.aperture;
+            tube.aperture_gen_clock = tube_aperture_interval;
 
         } else if (e.which == 67) { // color
             tube.hue = (tube.hue + tube_hue_change_delta) % 360;
@@ -322,7 +323,6 @@ $(function () {
                     if (i > 0) {
                         rings[i - 1].bright = true;
                     }
-                    break;
                 }
             }
             tube.apertube_move_clock = 0;
