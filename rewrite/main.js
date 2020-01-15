@@ -60,6 +60,9 @@ var tube = {
 };
 
 
+var log_enable = false;
+
+
 if (!Math.hypot) Math.hypot = function (x, y) {
     // https://bugzilla.mozilla.org/show_bug.cgi?id=896264#c28
     var max = 0;
@@ -189,6 +192,13 @@ function draw_ring (ring) {
 }
 
 
+function log (...args) {
+    if (!log_enable) return;
+
+    console.log(...args);
+}
+
+
 $(function () {
     // global variables
     canvas = document.getElementById('canvas');
@@ -222,11 +232,30 @@ $(function () {
         mouse.y = e.changedTouches[0].pageY - winheight / 2;
     });
 
+    console.log('%c[Control]', 'font-weight: bold');
+    let ctrl = [
+        ['v', 'enable verbose log'],
+        ['space', 'slow stop/move'],
+        ['left/right', 'twist the tube'],
+        ['up/down', 'increase/decrease the tube length by ' + 5],
+        ['t', 'enable/disable trailing effect'],
+        ['a', 'enable/disable aperture'],
+        ['c', 'increase hue by ' + tube_hue_change_delta + ' degrees'],
+    ];
+    for (let i = 0; i < ctrl.length; i++) {
+        console.log('%c' + ctrl[i][0] + '%c: ' + ctrl[i][1], 'font-weight: bold');
+    }
+
     $(window).keyup(function (e) {
-        console.log('keyup', e.which);
-        if (e.which == 32) { // space
+        log('keyup', e.which);
+
+        if (e.which == 86) { // verbose
+            log_enable = !log_enable;
+            console.log('log', log_enable ? 'enabled' : 'disabled');
+
+        } else if (e.which == 32) { // space
             tube.breaking = !tube.breaking;
-            console.log('breaking:', tube.breaking);
+            log('breaking:', tube.breaking);
 
         } else if (e.which == 37) { // left
             if (tube.twist_dir > -1) {
@@ -240,7 +269,7 @@ $(function () {
 
         } else if (e.which == 38) { // up
             max_z += 5;
-            console.log('max_z:', max_z);
+            log('max_z:', max_z);
             tube_aperture_interval = Math.floor(max_z * 1.5);
 
         } else if (e.which == 40) { // down
@@ -248,14 +277,16 @@ $(function () {
                 max_z -= 5;
             }
             tube_aperture_interval = Math.floor(max_z * 1.5);
-            console.log('max_z:', max_z);
+            log('max_z:', max_z);
 
         } else if (e.which == 84) { // trailing
             tube.trailing = !tube.trailing;
+            log('trailing', tube.trailing ? 'enabled' : 'disabled');
 
         } else if (e.which == 65) { // aperture
             tube.aperture = !tube.aperture;
             tube.aperture_gen_clock = tube_aperture_interval;
+            log('aperture', tube.aperture ? 'enabled' : 'disabled');
 
         } else if (e.which == 67) { // color
             tube.hue = (tube.hue + tube_hue_change_delta) % 360;
