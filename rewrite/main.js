@@ -15,6 +15,10 @@ var tube_speed_max = 1;
 var tube_speed_min = 0;
 var tube_speed_change_rate = 0.02;
 
+var tube_trailing_opacity_min = 0.3;
+var tube_trailing_opacity_max = 1;
+var tube_trailing_opacity_change_rate = 0.01;
+
 var bend_angle_max = 2 * pi / 12;
 
 
@@ -37,6 +41,8 @@ var mouse = {
     bend_angle: 0,
 };
 var tube = {
+    trailing: false,
+    trailing_opacity: 0,
     speed: tube_speed_max,
     offset: 0,
     breaking: false,
@@ -205,14 +211,24 @@ $(function () {
             if (tube.twist_dir < 1) {
                 tube.twist_dir += 1;
             }
+        } else if (e.which == 84) { // trailing
+            tube.trailing = !tube.trailing;
         }
     });
 
     let rings = []
 
     function draw_animation_frame () {
-        // canvas_ctx.clearRect(0, 0, canvas.width, canvas.height);
-        canvas_ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        if (tube.trailing) {
+            if (tube.trailing_opacity > tube_trailing_opacity_min) {
+                tube.trailing_opacity -= tube_trailing_opacity_change_rate;
+            }
+        } else {
+            if (tube.trailing_opacity < tube_trailing_opacity_max) {
+                tube.trailing_opacity += tube_trailing_opacity_change_rate;
+            }
+        }
+        canvas_ctx.fillStyle = 'rgba(0, 0, 0, ' + tube.trailing_opacity + ')';
         canvas_ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // update mouse related values
