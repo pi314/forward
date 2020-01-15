@@ -224,10 +224,25 @@ $(function () {
             if (tube.twist_dir < 1) {
                 tube.twist_dir += 1;
             }
+
+        } else if (e.which == 38) { // up
+            max_z += 5;
+            console.log('max_z:', max_z);
+            tube_aperture_interval = Math.floor(max_z * 1.5);
+
+        } else if (e.which == 40) { // down
+            if (max_z > 5) {
+                max_z -= 5;
+            }
+            tube_aperture_interval = Math.floor(max_z * 1.5);
+            console.log('max_z:', max_z);
+
         } else if (e.which == 84) { // trailing
             tube.trailing = !tube.trailing;
+
         } else if (e.which == 65) { // aperture
             tube.aperture = !tube.aperture;
+
         } else if (e.which == 67) { // color
             tube.hue = (tube.hue + tube_hue_change_delta) % 360;
         }
