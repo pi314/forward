@@ -305,18 +305,32 @@ $(function () {
     document.addEventListener('touchend', touchend);
     document.addEventListener('touchcancel', touchend);
 
-    console.log('%c[Control]', 'font-weight: bold');
     let ctrl = [
+        ['[Keyboard Control (for PC)]'],
         ['v', 'enable verbose log'],
-        ['space', 'slow stop/move'],
+        ['space', 'stop/move'],
         ['left/right', 'twist the tube'],
         ['up/down', 'increase/decrease the tube length by ' + 5],
         ['t', 'enable/disable trailing effect'],
         ['a', 'enable/disable aperture'],
-        ['c', 'increase hue by ' + tube_hue_change_delta + ' degrees'],
+        ['x/c', 'decrease/increase hue by ' + tube_hue_change_delta + ' degrees'],
+        ['[Hand Gestures (for mobile)]'],
+        ['⬇⬇', 'stop/move'],
+        ['⬇⬆', 'twist the tube leftwards'],
+        ['⬆⬇', 'twist the tube rightwards'],
+        ['⬆⬆', 'enable/disable apreture'],
+        ['Long click on lower left', 'show hue selection menu']
     ];
     for (let i = 0; i < ctrl.length; i++) {
-        console.log('%c' + ctrl[i][0] + '%c: ' + ctrl[i][1], 'font-weight: bold');
+        let log_str = '%c' + ctrl[i][0];
+        if (ctrl[i].length > 1) {
+            log_str += '%c: ' + ctrl[i][1];
+        }
+        let css_str = 'font-weight: bold';
+        if (ctrl[i].length > 2) {
+            css_str = ctrl[i][2];
+        }
+        console.log(log_str, css_str);
     }
 
     $(window).keyup(function (e) {
