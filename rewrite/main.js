@@ -222,23 +222,88 @@ $(function () {
     }
     update_win_size();
 
-    canvas.addEventListener('mousemove', function (e) {
+    document.addEventListener('mousemove', function (e) {
         e.preventDefault();
         mouse.x = e.clientX - winwidth / 2;
         mouse.y = e.clientY - winheight / 2;
     });
 
-    canvas.addEventListener('touchstart', function (e) {
+    // hand gesture for mobile
+    let ongoing_touches = {}
+    let finished_gestures = [];
+
+    function touch_area (x, y) {
+        return (y >= 0 ? 'D' : 'U') + (x >= 0 ? 'R' : 'L');
+    };
+
+    document.addEventListener('touchstart', function (e) {
         e.preventDefault();
-        mouse.x = e.changedTouches[0].clientX - winwidth / 2;
-        mouse.y = e.changedTouches[0].clientY - winheight / 2;
+
+        let touches = e.changedTouches;
+        let merge_x = 0;
+        let merge_y = 0;
+
+        for (let i = 0; i < touches.length; i++) {
+            let touch = touches[i];
+            let touch_x = touch.clientX - winwidth / 2;
+            let touch_y = touch.clientY - winheight / 2;
+
+            ongoing_touches[touch.identifier] = [touch_area(touch_x, touch_y)];
+            merge_x += touch_x;
+            merge_y += touch_y;
+        }
+
+        mouse.x = merge_x / touches.length;
+        mouse.y = merge_y / touches.length;
+
+        $('#debug').text('touchstart');
     });
 
-    canvas.addEventListener('touchmove', function (e) {
+    function array_last (ary) {
+        return ary[ary.length - 1];
+    }
+
+    document.addEventListener('touchmove', function (e) {
         e.preventDefault();
-        mouse.x = e.changedTouches[0].clientX - winwidth / 2;
-        mouse.y = e.changedTouches[0].clientY - winheight / 2;
+
+        let touches = e.changedTouches;
+
+        for (let i = 0; i < touches.length; i++) {
+            let touch = touches[i];
+            let touch_x = touch.clientX - winwidth / 2;
+            let touch_y = touch.clientY - winheight / 2;
+            let touch_area_code = touch_area(touch_x, touch_y);
+
+            if (touch_area_code != array_last(ongoing_touches[touch.identifier])) {
+                ongoing_touches[touch.identifier].push(touch_area_code);
+            }
+        }
+
+        // mouse.x = e.changedTouches[0].clientX - winwidth / 2;
+        // mouse.y = e.changedTouches[0].clientY - winheight / 2;
+        $('#debug').text('touchmove');
     });
+
+    function touchend (e) {
+        e.preventDefault();
+        let touches = e.changedTouches;
+
+        for (let i = 0; i < touches.length; i++) {
+            let touch = touches[i];
+            finished_gestures.push(ongoing_touches[touch.identifier]);
+            delete ongoing_touches[touch.identifier];
+        }
+
+        if (Object.keys(ongoing_touches).length == 0) {
+            $('#debug').text('touchend: ' + finished_gestures.map(function (x) {
+                return x.join(',');
+            }).join(';'));
+            finished_gestures = [];
+        }
+    }
+
+    document.addEventListener('touchend', touchend);
+    document.addEventListener('touchcancel', touchend);
 
     console.log('%c[Control]', 'font-weight: bold');
     let ctrl = [
