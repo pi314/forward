@@ -223,13 +223,21 @@ $(function () {
     update_win_size();
 
     canvas.addEventListener('mousemove', function (e) {
+        e.preventDefault();
         mouse.x = e.clientX - winwidth / 2;
         mouse.y = e.clientY - winheight / 2;
     });
 
+    canvas.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        mouse.x = e.changedTouches[0].clientX - winwidth / 2;
+        mouse.y = e.changedTouches[0].clientY - winheight / 2;
+    });
+
     canvas.addEventListener('touchmove', function (e) {
-        mouse.x = e.changedTouches[0].pageX - winwidth / 2;
-        mouse.y = e.changedTouches[0].pageY - winheight / 2;
+        e.preventDefault();
+        mouse.x = e.changedTouches[0].clientX - winwidth / 2;
+        mouse.y = e.changedTouches[0].clientY - winheight / 2;
     });
 
     console.log('%c[Control]', 'font-weight: bold');
