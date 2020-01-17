@@ -318,7 +318,7 @@ function show_user_manual () {
         ['up/down', 'increase/decrease the tube length by ' + 5],
         ['t', 'enable/disable trailing effect'],
         ['a', 'enable/disable aperture'],
-        ['x/c', 'decrease/increase hue by ' + tube_hue_change_delta + ' degrees'],
+        ['c/x', 'increase/decrease hue by ' + tube_hue_change_delta + ' degrees'],
         ['[Hand Gestures (for mobile)]'],
         ['⬇⬇', 'stop/move'],
         ['⬇⬆', 'twist the tube leftwards'],
@@ -364,6 +364,38 @@ function mousemove (e) {
 }
 
 
+function increase_hue () {
+    tube.hue = (tube.hue + tube_hue_change_delta) % 360;
+}
+
+
+function decrease_hue () {
+    tube.hue = (tube.hue - tube_hue_change_delta + 360) % 360;
+}
+
+
+function toggle_aperture () {
+    tube.aperture = !tube.aperture;
+    tube.aperture_gen_clock = tube.aperture_interval;
+    log('aperture', tube.aperture ? 'enabled' : 'disabled');
+}
+
+
+function toggle_breaking () {
+    tube.breaking = !tube.breaking;
+    log('breaking:', tube.breaking);
+}
+
+
+function tube_twist (twist_dir_delta) {
+    let new_tube_twist_dir = tube.twist_dir + twist_dir_delta;
+
+    if (-1 <= new_tube_twist_dir && new_tube_twist_dir <= 1) {
+        tube.twist_dir = new_tube_twist_dir;
+    }
+}
+
+
 function keyup (e) {
     let key = e.which;
 
@@ -374,18 +406,13 @@ function keyup (e) {
         console.log('log', log_enable ? 'enabled' : 'disabled');
 
     } else if (key == 32) { // space
-        tube.breaking = !tube.breaking;
-        log('breaking:', tube.breaking);
+        toggle_breaking();
 
     } else if (key == 37) { // left
-        if (tube.twist_dir > -1) {
-            tube.twist_dir -= 1;
-        }
+        tube_twist(-1);
 
     } else if (key == 39) { // right
-        if (tube.twist_dir < 1) {
-            tube.twist_dir += 1;
-        }
+        tube_twist(1);
 
     } else if (key == 38) { // up
         tube.max_z += 5;
@@ -404,12 +431,13 @@ function keyup (e) {
         log('trailing', tube.trailing ? 'enabled' : 'disabled');
 
     } else if (key == 65) { // aperture
-        tube.aperture = !tube.aperture;
-        tube.aperture_gen_clock = tube.aperture_interval;
-        log('aperture', tube.aperture ? 'enabled' : 'disabled');
+        toggle_aperture();
 
     } else if (key == 67) { // color
-        tube.hue = (tube.hue + tube_hue_change_delta) % 360;
+        increase_hue();
+
+    } else if (key == 88) { // color
+        decrease_hue();
     }
 }
 
