@@ -445,7 +445,7 @@ function keyup (e) {
 // ----------------------------------------------------------------------------
 // Hand gesture for mobile
 
-let ongoing_touches = {}
+let ongoing_gestures = {}
 let finished_gestures = [];
 
 
@@ -454,25 +454,26 @@ function touch_area (x, y) {
 };
 
 
+function browser_event_to_my_coord (e) {
+    return [e.clientX - winwidth / 2, e.clientY - winheight / 2];
+}
+
+
 function touchstart (e) {
     e.preventDefault();
 
     let touches = e.changedTouches;
-    let merge_x = 0;
-    let merge_y = 0;
 
     for (let i = 0; i < touches.length; i++) {
         let touch = touches[i];
-        let touch_x = touch.clientX - winwidth / 2;
-        let touch_y = touch.clientY - winheight / 2;
+        let [touch_x, touch_y] = browser_event_to_my_coord(touch);
 
-        ongoing_touches[touch.identifier] = [touch_area(touch_x, touch_y)];
-        merge_x += touch_x;
-        merge_y += touch_y;
+        ongoing_gestures[touch.identifier] = [touch_area(touch_x, touch_y)];
     }
 
-    mouse.origin_x = merge_x / touches.length;
-    mouse.origin_y = merge_y / touches.length;
+    if (Object.keys(ongoing_gestures).length == 1) {
+        [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
+    }
 
     $('#debug').text('touchstart');
 }
@@ -485,17 +486,18 @@ function touchmove (e) {
 
     for (let i = 0; i < touches.length; i++) {
         let touch = touches[i];
-        let touch_x = touch.clientX - winwidth / 2;
-        let touch_y = touch.clientY - winheight / 2;
+        let [touch_x, touch_y] = browser_event_to_my_coord(touch);
         let touch_area_code = touch_area(touch_x, touch_y);
 
-        if (touch_area_code != array_last(ongoing_touches[touch.identifier])) {
-            ongoing_touches[touch.identifier].push(touch_area_code);
+        if (touch_area_code != array_last(ongoing_gestures[touch.identifier])) {
+            ongoing_gestures[touch.identifier].push(touch_area_code);
         }
     }
 
-    // mouse.origin_x = e.changedTouches[0].clientX - winwidth / 2;
-    // mouse.origin_y = e.changedTouches[0].clientY - winheight / 2;
+    if (Object.keys(ongoing_gestures).length == 1) {
+        [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
+    }
+
     $('#debug').text('touchmove');
 }
 
@@ -506,11 +508,11 @@ function touchend (e) {
 
     for (let i = 0; i < touches.length; i++) {
         let touch = touches[i];
-        finished_gestures.push(ongoing_touches[touch.identifier]);
-        delete ongoing_touches[touch.identifier];
+        finished_gestures.push(ongoing_gestures[touch.identifier]);
+        delete ongoing_gestures[touch.identifier];
     }
 
-    if (Object.keys(ongoing_touches).length == 0) {
+    if (Object.keys(ongoing_gestures).length == 0) {
         $('#debug').text('touchend: ' + finished_gestures.map(function (x) {
             return x.join(',');
         }).join(';'));
