@@ -1,31 +1,30 @@
-// constants
-var stars_per_ring = 20;
-var tube_twist_scales = 5;
-var pi = Math.PI;
-var tau = 2 * pi;
-var max_z = 150;
-var proj_plane_z = 25;
-var ring_radius = 10;
-var ring_star_radius_ratio = 20;
-var ring_interval = Math.floor(ring_radius * 2 * pi / stars_per_ring * 3);
-var star_radius = ring_radius / ring_star_radius_ratio;
-var star_max_alpha = 0.9;
+// ----------------------------------------------------------------------------
+// constants: values that should not be changed
 
-var tube_speed_max = 1;
-var tube_speed_min = 0;
-var tube_speed_change_rate = 0.02;
+const stars_per_ring = 20;
+const tube_twist_scales = 5;
+const pi = Math.PI;
+const tau = 2 * pi;
+const proj_plane_z = 25;
+const ring_radius = 10;
+const ring_star_radius_ratio = 20;
+const ring_interval = Math.floor(ring_radius * 2 * pi / stars_per_ring * 3);
+const star_radius = ring_radius / ring_star_radius_ratio;
+const star_max_alpha = 0.9;
 
-var tube_trailing_opacity_min = 0.3;
-var tube_trailing_opacity_max = 1;
-var tube_trailing_opacity_change_rate = 0.01;
-
-var tube_hue_change_delta = 30;
-var tube_aperture_interval = Math.floor(max_z * 1.5);
-
-var bend_angle_max = 2 * pi / 12;
+const tube_speed_max = 1;
+const tube_speed_min = 0;
+const tube_speed_change_rate = 0.02;
+const tube_trailing_opacity_min = 0.3;
+const tube_trailing_opacity_max = 1;
+const tube_trailing_opacity_change_rate = 0.01;
+const tube_hue_change_delta = 30;
+const tube_bend_angle_max = 2 * pi / 12;
 
 
-// semi-constants
+// Semi-constants:
+// values that may change by special events
+// but should be treated to as read-only
 var canvas = undefined;
 var canvas_ctx = undefined;
 var winwidth = undefined;
@@ -35,21 +34,22 @@ var new_winheight = undefined;
 var zoom_ratio = 0;
 
 
-// dynamics
+// dynamics, or contexts
 var mouse = {
-    x: 0,
-    y: 0,
+    origin_x: 0,
+    origin_y: 0,
     smooth_x: undefined,
     smooth_y: undefined,
     smooth_rate: 5,
-    bend_phase: 0,
-    bend_angle: 0,
 };
 var tube = {
+    max_z: 150,
     trailing: false,
     trailing_opacity: 1,
     speed: tube_speed_max,
     z: 0,
+    bend_phase: 0,
+    bend_angle: 0,
     breaking: false,
     twist_phase: 0,
     twist_dir: 0,
@@ -57,10 +57,16 @@ var tube = {
     aperture: false,
     aperture_gen_clock: 0,
     aperture_move_clock: 0,
+    aperture_interval: undefined,
 };
+tube.aperture_interval = Math.floor(tube.max_z * 1.5);
 
+var rings = [];
 
 var log_enable = false;
+
+
+// ----------------------------------------------------------------------------
 
 
 if (!Math.hypot) Math.hypot = function (x, y) {
@@ -78,6 +84,9 @@ if (!Math.hypot) Math.hypot = function (x, y) {
     return max === 1 / 0 ? 1 / 0 : max * Math.sqrt(s);
 };
 
+
+// ----------------------------------------------------------------------------
+// Models (class definission)
 
 function Star (phase_base) {
     this.phase_base = phase_base;
@@ -97,7 +106,7 @@ function Star (phase_base) {
 
 function Ring () {
     this.stars = [];
-    this.z = max_z;
+    this.z = tube.max_z;
     this.valid = true;
     this.hue = tube.hue;
     this.bright = false;
@@ -108,7 +117,7 @@ function Ring () {
 
     this.renew = function () {
         this.valid = true;
-        this.z = max_z;
+        this.z = tube.max_z;
         for (let s = 0; s < stars_per_ring; s++) {
             this.stars[s].renew();
         }
@@ -120,12 +129,11 @@ function Ring () {
         this.stars.push(new Star(s * 2 * pi / stars_per_ring));
     }
 }
+// ----------------------------------------------------------------------------
 
 
-function project (value, z) {
-    return value / z * proj_plane_z;
-}
-
+// ----------------------------------------------------------------------------
+// Animation calculations
 
 function draw_star (ring, star) {
     if (ring.z < 0) {
@@ -138,14 +146,18 @@ function draw_star (ring, star) {
     let proj_z = ring.z;
     let proj_r = star_radius;
 
-    if (mouse.bend_angle) {
+    if (tube.bend_angle) {
         let bend_radius =
-            max_z / mouse.bend_angle -
-            ring_radius * Math.cos(star.phase - mouse.bend_phase);
-        let star_bend_angle = mouse.bend_angle * ring.z / max_z;
-        proj_x += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.cos(mouse.bend_phase);
-        proj_y += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.sin(mouse.bend_phase);
+            tube.max_z / tube.bend_angle -
+            ring_radius * Math.cos(star.phase - tube.bend_phase);
+        let star_bend_angle = tube.bend_angle * ring.z / tube.max_z;
+        proj_x += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.cos(tube.bend_phase);
+        proj_y += bend_radius * (1 - Math.cos(star_bend_angle)) * Math.sin(tube.bend_phase);
         proj_z = bend_radius * Math.sin(star_bend_angle);
+    }
+
+    function project (value, z) {
+        return value / z * proj_plane_z;
     }
 
     proj_x = project(proj_x, proj_z);
@@ -155,7 +167,7 @@ function draw_star (ring, star) {
     if (ring.bright) {
         var alpha = 1;
     } else if (proj_z >= 0) {
-        var alpha = (1 - (proj_z / max_z)) * star_max_alpha;
+        var alpha = (1 - (proj_z / tube.max_z)) * star_max_alpha;
     } else {
         var alpha = star_max_alpha;
     }
@@ -192,6 +204,104 @@ function draw_ring (ring) {
 }
 
 
+function draw_animation_frame () {
+    if (tube.trailing) {
+        if (tube.trailing_opacity > tube_trailing_opacity_min) {
+            tube.trailing_opacity -= tube_trailing_opacity_change_rate;
+        }
+    } else {
+        if (tube.trailing_opacity < tube_trailing_opacity_max) {
+            tube.trailing_opacity += tube_trailing_opacity_change_rate;
+        }
+    }
+    canvas_ctx.fillStyle = 'rgba(0, 0, 0, ' + tube.trailing_opacity + ')';
+    canvas_ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // update mouse related values
+    if (mouse.smooth_x === undefined) {
+        mouse.smooth_x = mouse.origin_x;
+        mouse.smooth_y = mouse.origin_y;
+    } else {
+        mouse.smooth_x += (mouse.origin_x - mouse.smooth_x) / mouse.smooth_rate;
+        mouse.smooth_y += (mouse.origin_y - mouse.smooth_y) / mouse.smooth_rate;
+    }
+
+    tube.bend_phase = Math.atan2(mouse.smooth_y, mouse.smooth_x);
+    tube.bend_angle = Math.hypot(mouse.smooth_x, mouse.smooth_y) /
+        Math.hypot(winwidth / 2, winheight / 2) *
+        tube_bend_angle_max;
+
+    if (tube.speed < tube_speed_min) {
+        tube.speed = tube_speed_min;
+    } else if (tube.breaking && tube.speed > tube_speed_min) {
+        tube.speed -= tube_speed_change_rate;
+    } else if (!tube.breaking && tube.speed < tube_speed_max) {
+        tube.speed += tube_speed_change_rate;
+    }
+
+    for (let r = 0; r < rings.length; r++) {
+        draw_ring(rings[r]);
+        rings[r].move();
+    }
+
+    tube.z += tube.speed;
+    if (tube.z >= ring_interval) {
+        tube.twist_phase += tube.twist_dir * (tau / stars_per_ring / tube_twist_scales);
+        if (tube.twist_phase <= -tau) {
+            tube.twist_phase += tau;
+        }
+        if (tube.twist_phase >= tau) {
+            tube.twist_phase -= tau;
+        }
+
+        let tail_ring = undefined;
+
+        if (rings.length && !rings[0].valid) {
+            tail_ring = rings.shift();
+            tail_ring.renew();
+        } else {
+            tail_ring = new Ring();
+        }
+
+        rings.push(tail_ring);
+
+        tube.z = 0;
+    }
+
+    tube.aperture_move_clock += tube_speed_max;
+    if (tube.aperture_move_clock >= ring_interval) {
+        for (let i = 0; i < rings.length; i++) {
+            if (rings[i].bright) {
+                rings[i].bright = false;
+                if (i > 0) {
+                    rings[i - 1].bright = true;
+                }
+            }
+        }
+        tube.aperture_move_clock = 0;
+
+        if (winwidth != new_winwidth || winheight != new_winheight) {
+            update_win_size();
+        }
+    }
+
+    if (tube.aperture) {
+        tube.aperture_gen_clock += tube_speed_max;
+        if (tube.aperture_gen_clock >= tube.aperture_interval) {
+            if (rings.length) {
+                rings[rings.length - 1].bright = true;
+            }
+            tube.aperture_gen_clock = 0;
+        }
+    }
+
+    raf = window.requestAnimationFrame(draw_animation_frame);
+}
+
+
+// ----------------------------------------------------------------------------
+// Utility functions
+
 function log (...args) {
     if (!log_enable) return;
 
@@ -199,112 +309,7 @@ function log (...args) {
 }
 
 
-$(function () {
-    // global variables
-    canvas = document.getElementById('canvas');
-    canvas_ctx = canvas.getContext('2d');
-
-    new_winwidth = window.innerWidth;
-    new_winheight = window.innerHeight;
-
-    $(window).resize(function () {
-        new_winwidth = window.innerWidth;
-        new_winheight = window.innerHeight;
-    });
-
-    function update_win_size () {
-        winwidth = new_winwidth;
-        winheight = new_winheight;
-        zoom_ratio = Math.min(winwidth, winheight) / ring_radius;
-
-        canvas_ctx.canvas.width  = winwidth;
-        canvas_ctx.canvas.height = winheight;
-    }
-    update_win_size();
-
-    document.addEventListener('mousemove', function (e) {
-        e.preventDefault();
-        mouse.x = e.clientX - winwidth / 2;
-        mouse.y = e.clientY - winheight / 2;
-    });
-
-    // hand gesture for mobile
-    let ongoing_touches = {}
-    let finished_gestures = [];
-
-    function touch_area (x, y) {
-        return (y >= 0 ? 'D' : 'U') + (x >= 0 ? 'R' : 'L');
-    };
-
-    document.addEventListener('touchstart', function (e) {
-        e.preventDefault();
-
-        let touches = e.changedTouches;
-        let merge_x = 0;
-        let merge_y = 0;
-
-        for (let i = 0; i < touches.length; i++) {
-            let touch = touches[i];
-            let touch_x = touch.clientX - winwidth / 2;
-            let touch_y = touch.clientY - winheight / 2;
-
-            ongoing_touches[touch.identifier] = [touch_area(touch_x, touch_y)];
-            merge_x += touch_x;
-            merge_y += touch_y;
-        }
-
-        mouse.x = merge_x / touches.length;
-        mouse.y = merge_y / touches.length;
-
-        $('#debug').text('touchstart');
-    });
-
-    function array_last (ary) {
-        return ary[ary.length - 1];
-    }
-
-    document.addEventListener('touchmove', function (e) {
-        e.preventDefault();
-
-        let touches = e.changedTouches;
-
-        for (let i = 0; i < touches.length; i++) {
-            let touch = touches[i];
-            let touch_x = touch.clientX - winwidth / 2;
-            let touch_y = touch.clientY - winheight / 2;
-            let touch_area_code = touch_area(touch_x, touch_y);
-
-            if (touch_area_code != array_last(ongoing_touches[touch.identifier])) {
-                ongoing_touches[touch.identifier].push(touch_area_code);
-            }
-        }
-
-        // mouse.x = e.changedTouches[0].clientX - winwidth / 2;
-        // mouse.y = e.changedTouches[0].clientY - winheight / 2;
-        $('#debug').text('touchmove');
-    });
-
-    function touchend (e) {
-        e.preventDefault();
-        let touches = e.changedTouches;
-
-        for (let i = 0; i < touches.length; i++) {
-            let touch = touches[i];
-            finished_gestures.push(ongoing_touches[touch.identifier]);
-            delete ongoing_touches[touch.identifier];
-        }
-
-        if (Object.keys(ongoing_touches).length == 0) {
-            $('#debug').text('touchend: ' + finished_gestures.map(function (x) {
-                return x.join(',');
-            }).join(';'));
-            finished_gestures = [];
-        }
-    }
-
-    document.addEventListener('touchend', touchend);
-    document.addEventListener('touchcancel', touchend);
-
+function show_user_manual () {
     let ctrl = [
         ['[Keyboard Control (for PC)]'],
         ['v', 'enable verbose log'],
@@ -323,158 +328,201 @@ $(function () {
     ];
     for (let i = 0; i < ctrl.length; i++) {
         let log_str = '%c' + ctrl[i][0];
+        let css_config = ['font-weight: bold'];
         if (ctrl[i].length > 1) {
             log_str += '%c: ' + ctrl[i][1];
+            css_config.push('')
         }
-        let css_str = 'font-weight: bold';
-        if (ctrl[i].length > 2) {
-            css_str = ctrl[i][2];
+        console.log(log_str, ...css_config);
+    }
+}
+
+
+function array_last (ary) {
+    return ary[ary.length - 1];
+}
+
+
+// ----------------------------------------------------------------------------
+// Event handling; Parameter change handling
+
+
+function update_win_size () {
+    winwidth = new_winwidth;
+    winheight = new_winheight;
+    zoom_ratio = Math.min(winwidth, winheight) / ring_radius;
+
+    canvas_ctx.canvas.width  = winwidth;
+    canvas_ctx.canvas.height = winheight;
+}
+
+
+function mousemove (e) {
+    e.preventDefault();
+    mouse.origin_x = e.clientX - winwidth / 2
+    mouse.origin_y = e.clientY - winheight / 2
+}
+
+
+function keyup (e) {
+    let key = e.which;
+
+    log('keyup', key);
+
+    if (key == 86) { // verbose
+        log_enable = !log_enable;
+        console.log('log', log_enable ? 'enabled' : 'disabled');
+
+    } else if (key == 32) { // space
+        tube.breaking = !tube.breaking;
+        log('breaking:', tube.breaking);
+
+    } else if (key == 37) { // left
+        if (tube.twist_dir > -1) {
+            tube.twist_dir -= 1;
         }
-        console.log(log_str, css_str);
+
+    } else if (key == 39) { // right
+        if (tube.twist_dir < 1) {
+            tube.twist_dir += 1;
+        }
+
+    } else if (key == 38) { // up
+        tube.max_z += 5;
+        log('max_z:', tube.max_z);
+        tube.aperture_interval = Math.floor(tube.max_z * 1.5);
+
+    } else if (key == 40) { // down
+        if (tube.max_z > 5) {
+            tube.max_z -= 5;
+        }
+        tube.aperture_interval = Math.floor(tube.max_z * 1.5);
+        log('max_z:', tube.max_z);
+
+    } else if (key == 84) { // trailing
+        tube.trailing = !tube.trailing;
+        log('trailing', tube.trailing ? 'enabled' : 'disabled');
+
+    } else if (key == 65) { // aperture
+        tube.aperture = !tube.aperture;
+        tube.aperture_gen_clock = tube.aperture_interval;
+        log('aperture', tube.aperture ? 'enabled' : 'disabled');
+
+    } else if (key == 67) { // color
+        tube.hue = (tube.hue + tube_hue_change_delta) % 360;
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+// Hand gesture for mobile
+
+let ongoing_touches = {}
+let finished_gestures = [];
+
+
+function touch_area (x, y) {
+    return (y >= 0 ? 'D' : 'U') + (x >= 0 ? 'R' : 'L');
+};
+
+
+function touchstart (e) {
+    e.preventDefault();
+
+    let touches = e.changedTouches;
+    let merge_x = 0;
+    let merge_y = 0;
+
+    for (let i = 0; i < touches.length; i++) {
+        let touch = touches[i];
+        let touch_x = touch.clientX - winwidth / 2;
+        let touch_y = touch.clientY - winheight / 2;
+
+        ongoing_touches[touch.identifier] = [touch_area(touch_x, touch_y)];
+        merge_x += touch_x;
+        merge_y += touch_y;
     }
 
-    $(window).keyup(function (e) {
-        log('keyup', e.which);
+    mouse.origin_x = merge_x / touches.length;
+    mouse.origin_y = merge_y / touches.length;
 
-        if (e.which == 86) { // verbose
-            log_enable = !log_enable;
-            console.log('log', log_enable ? 'enabled' : 'disabled');
+    $('#debug').text('touchstart');
+}
 
-        } else if (e.which == 32) { // space
-            tube.breaking = !tube.breaking;
-            log('breaking:', tube.breaking);
 
-        } else if (e.which == 37) { // left
-            if (tube.twist_dir > -1) {
-                tube.twist_dir -= 1;
-            }
+function touchmove (e) {
+    e.preventDefault();
 
-        } else if (e.which == 39) { // right
-            if (tube.twist_dir < 1) {
-                tube.twist_dir += 1;
-            }
+    let touches = e.changedTouches;
 
-        } else if (e.which == 38) { // up
-            max_z += 5;
-            log('max_z:', max_z);
-            tube_aperture_interval = Math.floor(max_z * 1.5);
+    for (let i = 0; i < touches.length; i++) {
+        let touch = touches[i];
+        let touch_x = touch.clientX - winwidth / 2;
+        let touch_y = touch.clientY - winheight / 2;
+        let touch_area_code = touch_area(touch_x, touch_y);
 
-        } else if (e.which == 40) { // down
-            if (max_z > 5) {
-                max_z -= 5;
-            }
-            tube_aperture_interval = Math.floor(max_z * 1.5);
-            log('max_z:', max_z);
-
-        } else if (e.which == 84) { // trailing
-            tube.trailing = !tube.trailing;
-            log('trailing', tube.trailing ? 'enabled' : 'disabled');
-
-        } else if (e.which == 65) { // aperture
-            tube.aperture = !tube.aperture;
-            tube.aperture_gen_clock = tube_aperture_interval;
-            log('aperture', tube.aperture ? 'enabled' : 'disabled');
-
-        } else if (e.which == 67) { // color
-            tube.hue = (tube.hue + tube_hue_change_delta) % 360;
+        if (touch_area_code != array_last(ongoing_touches[touch.identifier])) {
+            ongoing_touches[touch.identifier].push(touch_area_code);
         }
+    }
+
+    // mouse.origin_x = e.changedTouches[0].clientX - winwidth / 2;
+    // mouse.origin_y = e.changedTouches[0].clientY - winheight / 2;
+    $('#debug').text('touchmove');
+}
+
+
+function touchend (e) {
+    e.preventDefault();
+    let touches = e.changedTouches;
+
+    for (let i = 0; i < touches.length; i++) {
+        let touch = touches[i];
+        finished_gestures.push(ongoing_touches[touch.identifier]);
+        delete ongoing_touches[touch.identifier];
+    }
+
+    if (Object.keys(ongoing_touches).length == 0) {
+        $('#debug').text('touchend: ' + finished_gestures.map(function (x) {
+            return x.join(',');
+        }).join(';'));
+        finished_gestures = [];
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+
+
+window.onload = function () {
+    // global variables
+    canvas = document.getElementById('canvas');
+    canvas_ctx = canvas.getContext('2d');
+
+    new_winwidth = window.innerWidth;
+    new_winheight = window.innerHeight;
+
+    // I'm not calling update_win_size() here and instead only storing new
+    // window size, to prevent heavy calculation triggered on every resize
+    // events, which causes lag.
+    // New window size will be "noticed" at next important moment.
+    window.addEventListener('resize', function () {
+        new_winwidth = window.innerWidth;
+        new_winheight = window.innerHeight;
     });
 
-    let rings = []
+    document.addEventListener('keyup', keyup);
 
-    function draw_animation_frame () {
-        if (tube.trailing) {
-            if (tube.trailing_opacity > tube_trailing_opacity_min) {
-                tube.trailing_opacity -= tube_trailing_opacity_change_rate;
-            }
-        } else {
-            if (tube.trailing_opacity < tube_trailing_opacity_max) {
-                tube.trailing_opacity += tube_trailing_opacity_change_rate;
-            }
-        }
-        canvas_ctx.fillStyle = 'rgba(0, 0, 0, ' + tube.trailing_opacity + ')';
-        canvas_ctx.fillRect(0, 0, canvas.width, canvas.height);
+    document.addEventListener('mousemove', mousemove);
 
-        // update mouse related values
-        if (mouse.smooth_x === undefined) {
-            mouse.smooth_x = mouse.x;
-            mouse.smooth_y = mouse.y;
-        } else {
-            mouse.smooth_x += (mouse.x - mouse.smooth_x) / mouse.smooth_rate;
-            mouse.smooth_y += (mouse.y - mouse.smooth_y) / mouse.smooth_rate;
-        }
+    document.addEventListener('touchstart', touchstart);
+    document.addEventListener('touchmove', touchmove);
+    document.addEventListener('touchend', touchend);
+    document.addEventListener('touchcancel', touchend);
 
-        mouse.bend_phase = Math.atan2(mouse.smooth_y, mouse.smooth_x);
-        mouse.bend_angle = Math.hypot(mouse.smooth_x, mouse.smooth_y) /
-            Math.hypot(winwidth / 2, winheight / 2) *
-            bend_angle_max;
+    update_win_size();
 
-        if (tube.speed < tube_speed_min) {
-            tube.speed = tube_speed_min;
-        } else if (tube.breaking && tube.speed > tube_speed_min) {
-            tube.speed -= tube_speed_change_rate;
-        } else if (!tube.breaking && tube.speed < tube_speed_max) {
-            tube.speed += tube_speed_change_rate;
-        }
-
-        for (let r = 0; r < rings.length; r++) {
-            draw_ring(rings[r]);
-            rings[r].move();
-        }
-
-        tube.z += tube.speed;
-        if (tube.z >= ring_interval) {
-            tube.twist_phase += tube.twist_dir * (tau / stars_per_ring / tube_twist_scales);
-            if (tube.twist_phase <= -tau) {
-                tube.twist_phase += tau;
-            }
-            if (tube.twist_phase >= tau) {
-                tube.twist_phase -= tau;
-            }
-
-            let tail_ring = undefined;
-
-            if (rings.length && !rings[0].valid) {
-                tail_ring = rings.shift();
-                tail_ring.renew();
-            } else {
-                tail_ring = new Ring();
-            }
-
-            rings.push(tail_ring);
-
-            tube.z = 0;
-        }
-
-        tube.aperture_move_clock += tube_speed_max;
-        if (tube.aperture_move_clock >= ring_interval) {
-            for (let i = 0; i < rings.length; i++) {
-                if (rings[i].bright) {
-                    rings[i].bright = false;
-                    if (i > 0) {
-                        rings[i - 1].bright = true;
-                    }
-                }
-            }
-            tube.aperture_move_clock = 0;
-
-            if (winwidth != new_winwidth || winheight != new_winheight) {
-                update_win_size();
-            }
-        }
-
-        if (tube.aperture) {
-            tube.aperture_gen_clock += tube_speed_max;
-            if (tube.aperture_gen_clock >= tube_aperture_interval) {
-                if (rings.length) {
-                    rings[rings.length - 1].bright = true;
-                }
-                tube.aperture_gen_clock = 0;
-            }
-        }
-
-        raf = window.requestAnimationFrame(draw_animation_frame);
-    }
+    show_user_manual();
 
     draw_animation_frame();
-});
+};
