@@ -449,6 +449,11 @@ let ongoing_gestures = {}
 let finished_gestures = [];
 
 
+function debug (text) {
+    document.getElementById('debug').textContent = text;
+}
+
+
 function touch_area (x, y) {
     return (y >= 0 ? 'D' : 'U') + (x >= 0 ? 'R' : 'L');
 };
@@ -471,11 +476,11 @@ function touchstart (e) {
         ongoing_gestures[touch.identifier] = [touch_area(touch_x, touch_y)];
     }
 
-    if (Object.keys(ongoing_gestures).length == 1) {
+    if (Object.keys(ongoing_gestures).length == 1 && finished_gestures.length == 0) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
     }
 
-    $('#debug').text('touchstart');
+    debug('touchstart');
 }
 
 
@@ -494,11 +499,11 @@ function touchmove (e) {
         }
     }
 
-    if (Object.keys(ongoing_gestures).length == 1) {
+    if (Object.keys(ongoing_gestures).length == 1 && finished_gestures.length == 0) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
     }
 
-    $('#debug').text('touchmove');
+    debug('touchmove');
 }
 
 
@@ -513,9 +518,17 @@ function touchend (e) {
     }
 
     if (Object.keys(ongoing_gestures).length == 0) {
-        $('#debug').text('touchend: ' + finished_gestures.map(function (x) {
+        finished_gestures.sort();
+
+        let parsed_gesture = finished_gestures.map(function (x) {
             return x.join(',');
-        }).join(';'));
+        }).join(';');
+
+        debug('touchend: ' + parsed_gesture);
+
+        if (parsed_gesture == 'UL,DL;UR,DR') {
+            toggle_breaking();
+        }
         finished_gestures = [];
     }
 }
