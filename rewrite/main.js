@@ -18,6 +18,7 @@ const tube_speed_change_rate = 0.02;
 const tube_trailing_opacity_min = 0.3;
 const tube_trailing_opacity_max = 1;
 const tube_trailing_opacity_change_rate = 0.01;
+const tube_hue_init = 180;
 const tube_hue_change_delta = 30;
 const tube_bend_angle_max = 2 * pi / 12;
 
@@ -25,7 +26,7 @@ const palette_touch_radious = 25;
 const palette_hue_inner_radius = palette_touch_radious * 2;
 const palette_hue_outer_radius = palette_touch_radious * 3;
 const palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
-const palette_hue_rotate_base = 240;
+const palette_hue_rotate_init = 240 + tube_hue_init;
 const palette_charge_time = ring_interval * 2;
 const PaletteState = Object.freeze({
     idle: 0,
@@ -68,7 +69,7 @@ var tube = {
     breaking: false,
     twist_phase: 0,
     twist_dir: 0,
-    hue: 180,
+    hue: tube_hue_init,
     aperture: false,
     aperture_gen_clock: 0,
     aperture_move_clock: 0,
@@ -83,9 +84,12 @@ var palette = {
     state: PaletteState.idle,
     trigger_touch: undefined,
     charging_clock: 0,
+    hue_rotate_base: palette_hue_rotate_init,
     rotating_touch: undefined,
-    rotating_phase_from: 0,
-    rotating_phase_to: 0,
+    rotating_from_x: 0,
+    rotating_from_y: 0,
+    rotating_to_x: 0,
+    rotating_to_y: 0,
 };
 
 var rings = [];
@@ -247,7 +251,19 @@ function draw_palette_touch_ind () {
 function draw_palette_hue_ring () {
     var touch_rotate = 0;
     if (palette.rotating_touch !== undefined) {
-        touch_rotate += palette.rotating_phase_from - palette.rotating_phase_to;
+        let rotating_phase_from = Math.atan2(
+            palette.rotating_from_y - palette_center_y,
+            palette.rotating_from_x - palette_center_x,
+        );
+        let rotating_phase_to = Math.atan2(
+            palette.rotating_to_y - palette_center_y,
+            palette.rotating_to_x - palette_center_x,
+        );
+        let rotating_delta = rotating_phase_from - rotating_phase_to;
+
+        touch_rotate = rotating_delta;
+
+        tube.hue = palette.hue_rotate_base - rotating_delta_to_hue_delta(rotating_delta) - 240;
     }
 
     let th = palette_curr_hue_ind_thickness;
@@ -286,7 +302,7 @@ function draw_palette_hue_ring () {
         canvas_ctx.lineTo(ro * Math.sin(theta_f) + x, ro * Math.cos(theta_f) + y);
         canvas_ctx.lineTo(ro * Math.sin(theta_t) + x, ro * Math.cos(theta_t) + y);
         canvas_ctx.lineTo(ri * Math.sin(theta_t) + x, ri * Math.cos(theta_t) + y);
-        canvas_ctx.fillStyle = 'hsl(' + (hue + tube.hue + palette_hue_rotate_base) + ', 100%, 50%, 90%)';
+        canvas_ctx.fillStyle = 'hsl(' + (hue + palette.hue_rotate_base) + ', 100%, 50%, 90%)';
         canvas_ctx.closePath();
         canvas_ctx.fill();
 
@@ -425,6 +441,19 @@ function log (...args) {
     if (!log_enable) return;
 
     console.log(...args);
+}
+
+
+function rotating_delta_to_hue_delta (rotating_delta) {
+    let hue_scaled_delta = rotating_delta * 360 / tau / 30;
+    let hue_delta = Math.floor(hue_scaled_delta) * 30;
+
+    hue_scaled_delta -= Math.floor(hue_scaled_delta);
+    if (Math.abs(hue_scaled_delta) > 0.5) {
+        hue_delta += 30 * ((hue_scaled_delta > 0) - (hue_scaled_delta < 0));
+    }
+
+    return hue_delta;
 }
 
 
@@ -609,9 +638,6 @@ function touchstart (e) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
     }
 
-    // debug('touchstart');
-    // debug('x,y=' + mouse.origin_x + ',' + mouse.origin_y);
-
     if (palette.state == PaletteState.idle) {
         let touch_dist = Math.hypot(
             touches[0].clientX - palette_center_x,
@@ -627,21 +653,17 @@ function touchstart (e) {
                 finished_gestures.length == 0) {
             palette.state = PaletteState.charging;
             palette.trigger_touch = touches[0].identifier;
-            debug('charging ' + palette.trigger_touch);
         }
     } else if (palette.state == PaletteState.charging) {
-        debug('idle ' + palette.trigger_touch);
         palette.state = PaletteState.idle;
         palette.trigger_touch = undefined;
 
     } else if (palette.state == PaletteState.activated) {
         palette.rotating_touch = touches[0].identifier;
-        palette.rotating_phase_from = Math.atan2(
-            touches[0].clientY - palette_center_y,
-            touches[0].clientX - palette_center_x,
-        );
-        palette.rotating_phase_to = palette.rotating_phase_from;
-        debug('rotate ' + palette.rotating_touch);
+        palette.rotating_from_x = touches[0].clientX;
+        palette.rotating_from_y = touches[0].clientY;
+        palette.rotating_to_x = palette.rotating_from_x;
+        palette.rotating_to_y = palette.rotating_from_y;
     }
 }
 
@@ -666,24 +688,18 @@ function touchmove (e) {
                             touch.clientY - palette_center_y
                         );
             if (touch_dist > palette_touch_radious) {
-                debug('idle ' + palette.trigger_touch);
                 palette.state = PaletteState.idle;
                 palette.trigger_touch = undefined;
             }
         } else if (touch.identifier === palette.rotating_touch) {
-            palette.rotating_phase_to = Math.atan2(
-                touch.clientY - palette_center_y,
-                touch.clientX - palette_center_x,
-            );
+            palette.rotating_to_x = touch.clientX;
+            palette.rotating_to_y = touch.clientY;
         }
     }
 
     if (Object.keys(ongoing_gestures).length == 1 && finished_gestures.length == 0) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
     }
-
-    // debug('touchmove');
-    // debug('x,y=' + mouse.origin_x + ',' + mouse.origin_y);
 }
 
 
@@ -703,8 +719,6 @@ function touchcancel (e) {
             palette.rotating_touch = undefined;
         }
     }
-
-    // debug('touchcancel');
 }
 
 
@@ -718,22 +732,22 @@ function touchend (e) {
         delete ongoing_gestures[touch.identifier];
 
         if (touch.identifier === palette.trigger_touch) {
-            debug('idle ' + palette.trigger_touch);
             palette.state = PaletteState.idle;
             palette.trigger_touch = undefined;
 
         } else if (touch.identifier === palette.rotating_touch) {
             palette.rotating_touch = undefined;
-            let rotate_delta = palette.rotating_phase_to - palette.rotating_phase_from;
-            let hue_scaled_delta = (rotate_delta) * 360 / tau / 30;
+            let rotating_phase_from = Math.atan2(
+                palette.rotating_from_y - palette_center_y,
+                palette.rotating_from_x - palette_center_x,
+            );
+            let rotating_phase_to = Math.atan2(
+                palette.rotating_to_y - palette_center_y,
+                palette.rotating_to_x - palette_center_x,
+            );
+            let rotating_delta = rotating_phase_from - rotating_phase_to;
 
-            tube.hue += Math.floor(hue_scaled_delta) * 30;
-
-            hue_scaled_delta -= Math.floor(hue_scaled_delta);
-            if (Math.abs(hue_scaled_delta) > 0.5) {
-                tube.hue += 30 * ((hue_scaled_delta > 0) - (hue_scaled_delta < 0));
-            }
-            debug('hue ' + tube.hue);
+            palette.hue_rotate_base = tube.hue + 240;
         }
     }
 
@@ -765,9 +779,6 @@ function touchend (e) {
             mouse.origin_x = 0;
             mouse.origin_y = 0;
         }
-
-        // debug('touchend: ' + parsed_gesture);
-        // debug('x,y=' + mouse.origin_x + ',' + mouse.origin_y);
     }
 }
 
