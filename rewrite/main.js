@@ -357,13 +357,6 @@ function update_win_size () {
 }
 
 
-function mousemove (e) {
-    e.preventDefault();
-    mouse.origin_x = e.clientX - winwidth / 2
-    mouse.origin_y = e.clientY - winheight / 2
-}
-
-
 function increase_hue () {
     tube.hue = (tube.hue + tube_hue_change_delta) % 360;
 }
@@ -442,20 +435,38 @@ function keyup (e) {
 }
 
 
+function pointermove (e) {
+    e.preventDefault();
+    mouse.origin_x = e.clientX - winwidth / 2
+    mouse.origin_y = e.clientY - winheight / 2
+}
+
+
 // ----------------------------------------------------------------------------
 // Hand gesture for mobile
 
+// Two gestures are defined.
+// For basic gestures, the screen is divided into 4 pieces:
+// - Top-right (RT)
+// - Top-left (LT)
+// - Bottom-right (RB)
+// - Bottom-left (LB)
+// Swipe down on the left side of screen is represented as ""
+
+// Basic gestures:
 let ongoing_gestures = {}
 let finished_gestures = [];
 
+let palette_timer = undefined;
+
 
 function debug (text) {
-    document.getElementById('debug').textContent = text;
+    document.getElementById('debug').textContent += '\n' + text;
 }
 
 
 function touch_area (x, y) {
-    return (x >= 0 ? 'R' : 'L') + (y >= 0 ? 'D' : 'U');
+    return (x >= 0 ? 'R' : 'L') + (y >= 0 ? 'B' : 'T');
 };
 
 
@@ -481,6 +492,7 @@ function touchstart (e) {
     }
 
     debug('touchstart');
+    debug('x,y=' + mouse.origin_x + ',' + mouse.origin_y);
 }
 
 
@@ -504,6 +516,20 @@ function touchmove (e) {
     }
 
     debug('touchmove');
+    debug('x,y=' + mouse.origin_x + ',' + mouse.origin_y);
+}
+
+
+function touchcancel (e) {
+    e.preventDefault();
+    let touches = e.changedTouches;
+
+    for (let i = 0; i < touches.length; i++) {
+        let touch = touches[i];
+        delete ongoing_gestures[touch.identifier];
+    }
+
+    debug('touchcancel');
 }
 
 
@@ -523,23 +549,31 @@ function touchend (e) {
         let parsed_gesture = finished_gestures.map(function (x) {
             return x.join(',');
         }).join(';');
+        finished_gestures = [];
 
-        debug('touchend: ' + parsed_gesture);
-
-        if (parsed_gesture == 'LU,LD;RU,RD') {
+        if (parsed_gesture == 'LT,LB;RT,RB') {
             toggle_breaking();
 
-        } else if (parsed_gesture == 'LD,LU;RD,RU') {
+        } else if (parsed_gesture == 'LB,LT;RB,RT') {
             toggle_aperture();
 
-        } else if (parsed_gesture == 'LU,LD;RD,RU') {
+        } else if (parsed_gesture == 'LT,LB;RB,RT') {
             tube_twist(-1);
 
-        } else if (parsed_gesture == 'LD,LU;RU,RD') {
+        } else if (parsed_gesture == 'LB,LT;RT,RB') {
             tube_twist(1);
 
+        } else {
+            parsed_gesture = '';
         }
-        finished_gestures = [];
+
+        if (parsed_gesture != '') {
+            mouse.origin_x = 0;
+            mouse.origin_y = 0;
+        }
+
+        debug('touchend: ' + parsed_gesture);
+        debug('x,y=' + mouse.origin_x + ',' + mouse.origin_y);
     }
 }
 
@@ -566,12 +600,15 @@ window.onload = function () {
 
     document.addEventListener('keyup', keyup);
 
-    document.addEventListener('mousemove', mousemove);
+    // Use pointermove instead of mousemove here.
+    // Because mobile browser sometimes trigger 'mousemove' after 'touchend'
+    // even with preventDefault(), causes tube-position-reset not working
+    document.addEventListener('pointermove', pointermove);
 
     document.addEventListener('touchstart', touchstart);
     document.addEventListener('touchmove', touchmove);
     document.addEventListener('touchend', touchend);
-    document.addEventListener('touchcancel', touchend);
+    document.addEventListener('touchcancel', touchcancel);
 
     update_win_size();
 
