@@ -455,7 +455,7 @@ function debug (text) {
 
 
 function touch_area (x, y) {
-    return (y >= 0 ? 'D' : 'U') + (x >= 0 ? 'R' : 'L');
+    return (x >= 0 ? 'R' : 'L') + (y >= 0 ? 'D' : 'U');
 };
 
 
@@ -526,8 +526,18 @@ function touchend (e) {
 
         debug('touchend: ' + parsed_gesture);
 
-        if (parsed_gesture == 'UL,DL;UR,DR') {
+        if (parsed_gesture == 'LU,LD;RU,RD') {
             toggle_breaking();
+
+        } else if (parsed_gesture == 'LD,LU;RD,RU') {
+            toggle_aperture();
+
+        } else if (parsed_gesture == 'LU,LD;RD,RU') {
+            tube_twist(-1);
+
+        } else if (parsed_gesture == 'LD,LU;RU,RD') {
+            tube_twist(1);
+
         }
         finished_gestures = [];
     }
