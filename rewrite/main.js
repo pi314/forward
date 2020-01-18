@@ -451,7 +451,7 @@ function pointermove (e) {
 // - Top-left (LT)
 // - Bottom-right (RB)
 // - Bottom-left (LB)
-// Swipe down on the left side of screen is represented as ""
+// Swipe down on the left side of screen is represented as "LT,LB"
 
 // Basic gestures:
 let ongoing_gestures = {}
