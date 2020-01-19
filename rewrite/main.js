@@ -22,10 +22,6 @@ const tube_hue_init = 180;
 const tube_hue_change_delta = 30;
 const tube_bend_angle_max = 2 * pi / 12;
 
-const palette_touch_radious = 25;
-const palette_hue_inner_radius = palette_touch_radious * 2;
-const palette_hue_outer_radius = palette_touch_radious * 3;
-const palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
 const palette_hue_rotate_init = 60 + tube_hue_init;
 const palette_charge_time = ring_interval * 2;
 const palette_hue_ring_opacity = '60%';
@@ -50,6 +46,10 @@ var zoom_ratio = 0;
 
 var palette_center_x = undefined;
 var palette_center_y = undefined;
+var palette_touch_radious = undefined;
+var palette_hue_inner_radius = undefined;
+var palette_hue_outer_radius = undefined;
+var palette_curr_hue_ind_thickness = undefined;
 
 
 // dynamics, or contexts
@@ -443,7 +443,7 @@ function draw_animation_frame () {
     }
 
     // Only show palette on touch screens
-    if ('ontouchstart' in document.documentElement || true) {
+    if ('ontouchstart' in document.documentElement) {
         draw_palette_touch_ind();
 
         if (palette.state == PaletteState.charging) {
@@ -494,7 +494,7 @@ function debounce (func, delay) {
     return function () {
         const context = this;
         const args = arguments;
-        clearTimeout(in_debounce);
+        clearTimeout(debounce_timer);
         debounce_timer = setTimeout(function () {
             func.apply(context, args);
         }, delay);
@@ -582,6 +582,11 @@ function update_win_size () {
 
     palette_center_x = s / 5;
     palette_center_y = winheight - (s / 5);
+
+    palette_touch_radious = s / 12;
+    palette_hue_inner_radius = palette_touch_radious * 2;
+    palette_hue_outer_radius = palette_touch_radious * 3;
+    palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
 }
 
 
