@@ -484,6 +484,36 @@ function log (...args) {
 }
 
 
+// From https://codeburst.io/throttling-and-debouncing-in-javascript-b01cad5c8edf
+function debounce (func, delay) {
+    let debounce_timer = undefined;
+    return function () {
+        const context = this;
+        const args = arguments;
+        clearTimeout(in_debounce);
+        debounce_timer = setTimeout(function () {
+            func.apply(context, args);
+        }, delay);
+    };
+}
+
+
+function throttling (func, limit) {
+    let in_throttling = false;
+    return function () {
+        const context = this;
+        const args = arguments;
+        if (!in_throttling) {
+            func.apply(context, args);
+            in_throttling = true;
+            setTimeout(function () {
+                in_throttling = false;
+            }, limit);
+        }
+    };
+}
+
+
 function rotating_delta_to_hue_delta (rotating_delta) {
     let hue_scaled_delta = rotating_delta * 360 / tau / 30;
     let hue_delta = Math.floor(hue_scaled_delta) * 30;
@@ -843,10 +873,10 @@ window.onload = function () {
     // window size, to prevent heavy calculation triggered on every resize
     // events, which causes lag.
     // New window size will be "noticed" at next important moment.
-    window.addEventListener('resize', function () {
+    window.addEventListener('resize', debounce(function () {
         new_winwidth = window.innerWidth;
         new_winheight = window.innerHeight;
-    });
+    }, 500));
 
     document.addEventListener('keyup', keyup);
 
@@ -856,7 +886,7 @@ window.onload = function () {
     document.addEventListener('pointermove', pointermove);
 
     document.addEventListener('touchstart', touchstart);
-    document.addEventListener('touchmove', touchmove);
+    document.addEventListener('touchmove', throttling(touchmove, 20));
     document.addEventListener('touchend', touchend);
     document.addEventListener('touchcancel', touchcancel);
 
