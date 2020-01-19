@@ -677,10 +677,6 @@ function pointermove (e) {
 // - Bottom-left (LB)
 // Swipe down on the left side of screen is represented as "LT,LB"
 
-function debug (text) {
-    document.getElementById('debug').textContent += '\n' + text;
-}
-
 
 function touch_area (x, y) {
     return (x >= 0 ? 'R' : 'L') + (y >= 0 ? 'B' : 'T');
