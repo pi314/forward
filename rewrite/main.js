@@ -583,7 +583,7 @@ function update_win_size () {
     palette_center_x = s / 5;
     palette_center_y = winheight - (s / 5);
 
-    palette_touch_radious = s / 12;
+    palette_touch_radious = s / 10;
     palette_hue_inner_radius = palette_touch_radious * 2;
     palette_hue_outer_radius = palette_touch_radious * 3;
     palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
