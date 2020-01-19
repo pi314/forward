@@ -26,7 +26,7 @@ const palette_touch_radious = 25;
 const palette_hue_inner_radius = palette_touch_radious * 2;
 const palette_hue_outer_radius = palette_touch_radious * 3;
 const palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
-const palette_hue_rotate_init = 240 + tube_hue_init;
+const palette_hue_rotate_init = 60 + tube_hue_init;
 const palette_charge_time = ring_interval * 2;
 const PaletteState = Object.freeze({
     idle: 0,
@@ -282,11 +282,9 @@ function draw_palette_hue_ring () {
             palette.rotating_to_y - palette_center_y,
             palette.rotating_to_x - palette_center_x,
         );
-        let rotating_delta = rotating_phase_from - rotating_phase_to;
+        touch_rotate = rotating_phase_to - rotating_phase_from;
 
-        touch_rotate = rotating_delta;
-
-        tube.hue = palette.hue_rotate_base - rotating_delta_to_hue_delta(rotating_delta) - 240;
+        tube.hue = palette.hue_rotate_base - rotating_delta_to_hue_delta(touch_rotate) - 60;
     }
 
     let th = palette_curr_hue_ind_thickness;
@@ -322,17 +320,26 @@ function draw_palette_hue_ring () {
         let theta_t = (hue + tube_hue_change_delta) * tau / 360 + touch_rotate;
 
         canvas_ctx.beginPath();
-        canvas_ctx.moveTo(ri * Math.sin(theta_f) + x, ri * Math.cos(theta_f) + y);
-        canvas_ctx.lineTo(ro * Math.sin(theta_f) + x, ro * Math.cos(theta_f) + y);
-        canvas_ctx.lineTo(ro * Math.sin(theta_t) + x, ro * Math.cos(theta_t) + y);
-        canvas_ctx.lineTo(ri * Math.sin(theta_t) + x, ri * Math.cos(theta_t) + y);
+        canvas_ctx.moveTo(ri * Math.cos(theta_f) + x, ri * Math.sin(theta_f) + y);
+        canvas_ctx.lineTo(ro * Math.cos(theta_f) + x, ro * Math.sin(theta_f) + y);
+        // canvas_ctx.arc(
+        //     x,
+        //     y,
+        //     ro,
+        //     theta_f, theta_t);
+
+        canvas_ctx.lineTo(ro * Math.cos(theta_t) + x, ro * Math.sin(theta_t) + y);
+        canvas_ctx.lineTo(ri * Math.cos(theta_t) + x, ri * Math.sin(theta_t) + y);
+
         canvas_ctx.fillStyle = 'hsl(' + (hue + palette.hue_rotate_base) + ', 100%, 50%, 80%)';
         canvas_ctx.closePath();
         canvas_ctx.fill();
 
-        canvas_ctx.strokeStyle = 'black'
+        canvas_ctx.strokeStyle = 'black';
+        // canvas_ctx.strokeStyle = canvas_ctx.fillStyle;
         canvas_ctx.lineWidth = 1;
         canvas_ctx.stroke();
+        // break;
     }
 
     canvas_ctx.beginPath();
@@ -808,17 +815,7 @@ function touchend (e) {
 
         } else if (touch.identifier === palette.rotating_touch) {
             palette.rotating_touch = undefined;
-            let rotating_phase_from = Math.atan2(
-                palette.rotating_from_y - palette_center_y,
-                palette.rotating_from_x - palette_center_x,
-            );
-            let rotating_phase_to = Math.atan2(
-                palette.rotating_to_y - palette_center_y,
-                palette.rotating_to_x - palette_center_x,
-            );
-            let rotating_delta = rotating_phase_from - rotating_phase_to;
-
-            palette.hue_rotate_base = tube.hue + 240;
+            palette.hue_rotate_base = tube.hue + 60;
         }
     }
 
