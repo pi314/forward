@@ -32,6 +32,7 @@ const PaletteState = Object.freeze({
     idle: 0,
     charging: 1,
     activated: 2,
+    discharging: 3,
 });
 
 
@@ -82,6 +83,7 @@ let finished_gestures = [];
 
 var palette = {
     state: PaletteState.idle,
+    pop_out_ratio: 0,
     trigger_touch: undefined,
     charging_clock: 0,
     hue_rotate_base: palette_hue_rotate_init,
@@ -236,15 +238,36 @@ function draw_ring (ring) {
 
 
 function draw_palette_touch_ind () {
-    canvas_ctx.beginPath();
-    canvas_ctx.arc(
-        palette_center_x,
-        palette_center_y,
-        palette_touch_radious,
-        0, pi * 2);
-    canvas_ctx.strokeStyle = 'white';
-    canvas_ctx.closePath();
-    canvas_ctx.stroke();
+    if (palette.state == PaletteState.charging) {
+        canvas_ctx.beginPath();
+        canvas_ctx.arc(
+            palette_center_x,
+            palette_center_y,
+            palette_curr_hue_ind_thickness,
+            0, tau);
+        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, 80%)';
+        canvas_ctx.fill();
+
+        canvas_ctx.beginPath();
+        canvas_ctx.arc(
+            palette_center_x,
+            palette_center_y,
+            palette_touch_radious,
+            0, pi * 2);
+        canvas_ctx.fillStyle = 'black';
+        canvas_ctx.closePath();
+        canvas_ctx.fill();
+    } else {
+        canvas_ctx.beginPath();
+        canvas_ctx.arc(
+            palette_center_x,
+            palette_center_y,
+            palette_touch_radious,
+            0, pi * 2);
+        canvas_ctx.strokeStyle = 'white';
+        canvas_ctx.closePath();
+        canvas_ctx.stroke();
+    }
 }
 
 
@@ -285,13 +308,14 @@ function draw_palette_hue_ring () {
         palette_center_y,
         th,
         0, -pi / 2);
-    canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, 90%)';
+    canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, 80%)';
     canvas_ctx.fill();
 
     let x = palette_center_x;
     let y = palette_center_y;
     let ri = palette_hue_inner_radius;
-    let ro = palette_hue_outer_radius;
+    let ro = palette_hue_inner_radius +
+        (palette_hue_outer_radius - palette_hue_inner_radius) * (palette.pop_out_ratio / 5);
 
     for (let hue = 0; hue < 360; hue += tube_hue_change_delta) {
         let theta_f = (hue) * tau / 360 + touch_rotate;
@@ -302,7 +326,7 @@ function draw_palette_hue_ring () {
         canvas_ctx.lineTo(ro * Math.sin(theta_f) + x, ro * Math.cos(theta_f) + y);
         canvas_ctx.lineTo(ro * Math.sin(theta_t) + x, ro * Math.cos(theta_t) + y);
         canvas_ctx.lineTo(ri * Math.sin(theta_t) + x, ri * Math.cos(theta_t) + y);
-        canvas_ctx.fillStyle = 'hsl(' + (hue + palette.hue_rotate_base) + ', 100%, 50%, 90%)';
+        canvas_ctx.fillStyle = 'hsl(' + (hue + palette.hue_rotate_base) + ', 100%, 50%, 80%)';
         canvas_ctx.closePath();
         canvas_ctx.fill();
 
@@ -418,15 +442,31 @@ function draw_animation_frame () {
     if ('ontouchstart' in document.documentElement || true) {
         draw_palette_touch_ind();
 
-        if (palette.state == PaletteState.charging || palette.state == PaletteState.activated) {
+        if (palette.state == PaletteState.charging) {
             palette.charging_clock += 1;
 
             if (palette.charging_clock >= palette_charge_time) {
-                draw_palette_hue_ring();
                 palette.state = PaletteState.activated;
             }
+        } else if (palette.state == PaletteState.activated) {
+            if (palette.pop_out_ratio < 5) {
+                palette.pop_out_ratio += 1;
+            }
+            draw_palette_hue_ring();
+
+        } else if (palette.state == PaletteState.discharging) {
+            if (palette.pop_out_ratio > 0) {
+                palette.pop_out_ratio -= 1;
+                draw_palette_hue_ring();
+            } else {
+                palette.pop_out_ratio = 0;
+                palette.state = PaletteState.idle;
+                palette.trigger_touch = undefined;
+            }
+
         } else {
             palette.charging_clock = 0;
+            palette.pop_out_ratio = 0;
         }
     }
 
@@ -638,22 +678,28 @@ function touchstart (e) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
     }
 
-    if (palette.state == PaletteState.idle) {
+    if (palette.state == PaletteState.idle || palette.state == PaletteState.discharging) {
         let touch_dist = Math.hypot(
             touches[0].clientX - palette_center_x,
             touches[0].clientY - palette_center_y
         );
 
-        // Only trigger palette charging if
+        // Trigger palette charging if
         // 1. there's only one touchstart
         // 2. there's only one touch ongoing (which is this one)
         // 3. there's no finished gestures before
         if (touch_dist <= palette_touch_radious &&
                 Object.keys(ongoing_gestures).length == 1 &&
                 finished_gestures.length == 0) {
-            palette.state = PaletteState.charging;
             palette.trigger_touch = touches[0].identifier;
+
+            if (palette.state == PaletteState.idle) {
+                palette.state = PaletteState.charging;
+            } else {
+                palette.state = PaletteState.activated;
+            }
         }
+
     } else if (palette.state == PaletteState.charging) {
         palette.state = PaletteState.idle;
         palette.trigger_touch = undefined;
@@ -664,6 +710,8 @@ function touchstart (e) {
         palette.rotating_from_y = touches[0].clientY;
         palette.rotating_to_x = palette.rotating_from_x;
         palette.rotating_to_y = palette.rotating_from_y;
+
+    } else if (palette.state == PaletteState.discharging) {
     }
 }
 
@@ -688,8 +736,7 @@ function touchmove (e) {
                             touch.clientY - palette_center_y
                         );
             if (touch_dist > palette_touch_radious) {
-                palette.state = PaletteState.idle;
-                palette.trigger_touch = undefined;
+                palette.state = PaletteState.discharging;
             }
         } else if (touch.identifier === palette.rotating_touch) {
             palette.rotating_to_x = touch.clientX;
@@ -712,8 +759,7 @@ function touchcancel (e) {
         delete ongoing_gestures[touch.identifier];
 
         if (touch.identifier === palette.trigger_touch) {
-            palette.state = PaletteState.idle;
-            palette.trigger_touch = undefined;
+            palette.state = PaletteState.discharging;
 
         } else if (touch.identifier === palette.rotating_touch) {
             palette.rotating_touch = undefined;
@@ -732,8 +778,7 @@ function touchend (e) {
         delete ongoing_gestures[touch.identifier];
 
         if (touch.identifier === palette.trigger_touch) {
-            palette.state = PaletteState.idle;
-            palette.trigger_touch = undefined;
+            palette.state = PaletteState.discharging;
 
         } else if (touch.identifier === palette.rotating_touch) {
             palette.rotating_touch = undefined;
