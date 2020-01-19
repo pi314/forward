@@ -28,6 +28,7 @@ const palette_hue_outer_radius = palette_touch_radious * 3;
 const palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
 const palette_hue_rotate_init = 60 + tube_hue_init;
 const palette_charge_time = ring_interval * 2;
+const palette_hue_ring_opacity = '60%';
 const PaletteState = Object.freeze({
     idle: 0,
     charging: 1,
@@ -245,7 +246,7 @@ function draw_palette_touch_ind () {
             palette_center_y,
             palette_curr_hue_ind_thickness,
             0, tau);
-        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, 80%)';
+        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
         canvas_ctx.fill();
 
         canvas_ctx.beginPath();
@@ -306,7 +307,7 @@ function draw_palette_hue_ring () {
         palette_center_y,
         th,
         0, -pi / 2);
-    canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, 80%)';
+    canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
     canvas_ctx.fill();
 
     let x = palette_center_x;
@@ -322,24 +323,20 @@ function draw_palette_hue_ring () {
         canvas_ctx.beginPath();
         canvas_ctx.moveTo(ri * Math.cos(theta_f) + x, ri * Math.sin(theta_f) + y);
         canvas_ctx.lineTo(ro * Math.cos(theta_f) + x, ro * Math.sin(theta_f) + y);
-        // canvas_ctx.arc(
-        //     x,
-        //     y,
-        //     ro,
-        //     theta_f, theta_t);
+        canvas_ctx.arc(x, y, ro, theta_f, theta_t);
 
-        canvas_ctx.lineTo(ro * Math.cos(theta_t) + x, ro * Math.sin(theta_t) + y);
         canvas_ctx.lineTo(ri * Math.cos(theta_t) + x, ri * Math.sin(theta_t) + y);
+        canvas_ctx.arc(x, y, ri, theta_t, theta_f, true);
 
-        canvas_ctx.fillStyle = 'hsl(' + (hue + palette.hue_rotate_base) + ', 100%, 50%, 80%)';
+        canvas_ctx.fillStyle = 'hsl(' +
+            (hue + palette.hue_rotate_base)
+            + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
         canvas_ctx.closePath();
         canvas_ctx.fill();
 
         canvas_ctx.strokeStyle = 'black';
-        // canvas_ctx.strokeStyle = canvas_ctx.fillStyle;
         canvas_ctx.lineWidth = 1;
         canvas_ctx.stroke();
-        // break;
     }
 
     canvas_ctx.beginPath();
