@@ -878,12 +878,12 @@ window.onload = function () {
     // Use pointermove instead of mousemove here.
     // Because mobile browser sometimes trigger 'mousemove' after 'touchend'
     // even with preventDefault(), causes tube-position-reset not working
-    document.addEventListener('pointermove', pointermove);
+    document.addEventListener('pointermove', pointermove, {passive: false});
 
-    document.addEventListener('touchstart', touchstart);
-    document.addEventListener('touchmove', throttling(touchmove, 20));
-    document.addEventListener('touchend', touchend);
-    document.addEventListener('touchcancel', touchcancel);
+    document.addEventListener('touchstart', touchstart, {passive: false});
+    document.addEventListener('touchmove', throttling(touchmove, 20), {passive: false});
+    document.addEventListener('touchend', touchend, {passive: false});
+    document.addEventListener('touchcancel', touchcancel, {passive: false});
 
     update_win_size();
 
