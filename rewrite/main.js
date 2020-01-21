@@ -32,6 +32,10 @@ const PaletteState = Object.freeze({
     discharging: 3,
 });
 
+const tutor_cooldown_time = 80;
+const tutor_skip_font = '20px serif';
+const tutor_skip_text = 'Skip»';
+
 
 // Semi-constants:
 // values that may change by special events
@@ -40,6 +44,7 @@ var canvas = undefined;
 var canvas_ctx = undefined;
 var winwidth = undefined;
 var winheight = undefined;
+var winsize = undefined;
 var new_winwidth = undefined;
 var new_winheight = undefined;
 var zoom_ratio = 0;
@@ -78,6 +83,55 @@ var tube = {
     aperture_interval: undefined,
 };
 tube.aperture_interval = Math.floor(tube.max_z * 1.5);
+
+let tutor = (function () {
+    let checked = {
+        move: false,
+        aperture: false,
+        twist_left: false,
+        twist_right: false,
+        hue: false,
+    };
+
+    let show = function () {
+        if (!checked.move) {
+            draw_tutor_arrow_swipe(true, true);
+            draw_tutor_arrow_swipe(false, true);
+            draw_skip_ind();
+
+        } else if (!checked.aperture) {
+            draw_tutor_arrow_swipe(true, false);
+            draw_tutor_arrow_swipe(false, false);
+            draw_skip_ind();
+
+        } else if (!checked.twist_left) {
+            draw_tutor_arrow_swipe(true, true);
+            draw_tutor_arrow_swipe(false, false);
+            draw_skip_ind();
+
+        } else if (!checked.twist_right) {
+            draw_tutor_arrow_swipe(true, false);
+            draw_tutor_arrow_swipe(false, true);
+            draw_skip_ind();
+
+        } else if (!checked.hue) {
+            draw_palette_touch_ind();
+            if (palette.state == PaletteState.activated) {
+                draw_tutor_arrow_palette();
+            }
+
+        } else {
+            tutor = undefined;
+        }
+    };
+
+    return {
+        cooldown_clock: 0,
+        checked: checked,
+        show: show,
+        wait: false,
+    }
+})();
 
 let ongoing_gestures = {}
 let finished_gestures = [];
@@ -239,26 +293,7 @@ function draw_ring (ring) {
 
 
 function draw_palette_touch_ind () {
-    if (palette.state == PaletteState.charging) {
-        canvas_ctx.beginPath();
-        canvas_ctx.arc(
-            palette_center_x,
-            palette_center_y,
-            palette_curr_hue_ind_thickness,
-            0, tau);
-        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
-        canvas_ctx.fill();
-
-        canvas_ctx.beginPath();
-        canvas_ctx.arc(
-            palette_center_x,
-            palette_center_y,
-            palette_touch_radious,
-            0, pi * 2);
-        canvas_ctx.fillStyle = 'black';
-        canvas_ctx.closePath();
-        canvas_ctx.fill();
-    } else {
+    if (palette.state == PaletteState.idle || palette.state == PaletteState.discharging) {
         canvas_ctx.beginPath();
         canvas_ctx.arc(
             palette_center_x,
@@ -268,6 +303,51 @@ function draw_palette_touch_ind () {
         canvas_ctx.strokeStyle = 'white';
         canvas_ctx.closePath();
         canvas_ctx.stroke();
+
+    } else if (palette.state == PaletteState.activated) {
+        let th = palette_curr_hue_ind_thickness;
+
+        canvas_ctx.beginPath();
+        canvas_ctx.moveTo(
+            palette_center_x + th * Math.sin(tau / 24),
+            palette_center_y - th,
+        );
+        canvas_ctx.lineTo(
+            palette_center_x + palette_hue_inner_radius / 1.5,
+            palette_center_y - palette_hue_inner_radius / 1.5);
+        canvas_ctx.lineTo(
+            palette_center_x + th,
+            palette_center_y - th * Math.sin(tau / 24)
+        );
+        canvas_ctx.arc(
+            palette_center_x,
+            palette_center_y,
+            th,
+            0, -pi / 2);
+        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
+        canvas_ctx.fill();
+
+    } else if (palette.state == PaletteState.charging) {
+        canvas_ctx.beginPath();
+        canvas_ctx.arc(
+            palette_center_x,
+            palette_center_y,
+            palette_curr_hue_ind_thickness,
+            0, tau);
+        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
+        canvas_ctx.fill();
+    }
+
+    if (palette.state == PaletteState.activated || palette.state == PaletteState.charging) {
+        canvas_ctx.beginPath();
+        canvas_ctx.arc(
+            palette_center_x,
+            palette_center_y,
+            palette_touch_radious,
+            0, pi * 2);
+        canvas_ctx.fillStyle = 'black';
+        canvas_ctx.closePath();
+        canvas_ctx.fill();
     }
 }
 
@@ -286,29 +366,11 @@ function draw_palette_hue_ring () {
         touch_rotate = rotating_phase_to - rotating_phase_from;
 
         tube.hue = palette.hue_rotate_base - rotating_delta_to_hue_delta(touch_rotate) - 60;
+
+        if (tutor && Math.abs(rotating_delta_to_hue_delta(touch_rotate)) >= 30) {
+            tutor.checked.hue = true;
+        }
     }
-
-    let th = palette_curr_hue_ind_thickness;
-
-    canvas_ctx.beginPath();
-    canvas_ctx.moveTo(
-        palette_center_x + th * Math.sin(tau / 24),
-        palette_center_y - th,
-    );
-    canvas_ctx.lineTo(
-        palette_center_x + palette_hue_inner_radius / 1.5,
-        palette_center_y - palette_hue_inner_radius / 1.5);
-    canvas_ctx.lineTo(
-        palette_center_x + th,
-        palette_center_y - th * Math.sin(tau / 24)
-    );
-    canvas_ctx.arc(
-        palette_center_x,
-        palette_center_y,
-        th,
-        0, -pi / 2);
-    canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
-    canvas_ctx.fill();
 
     let x = palette_center_x;
     let y = palette_center_y;
@@ -338,16 +400,79 @@ function draw_palette_hue_ring () {
         canvas_ctx.lineWidth = 1;
         canvas_ctx.stroke();
     }
+}
+
+
+function draw_tutor_arrow_swipe (left, down) {
+    var unit = winsize / 20;
+
+    if (left) {
+        var base_x = (winwidth / 2 - unit * 4) / 2;
+    } else {
+        var base_x = winwidth / 2 + (winwidth / 2 - unit * 4) / 2;
+    }
+
+    var base_y = winheight / 2 - unit * 4;
+
+    if (down) {
+        var vertices = [
+            [2, 6], [0, 4], [1, 4], [1, 0],
+            [3, 0], [3, 4], [4, 4], [2, 6],
+        ];
+    } else {
+        var vertices = [
+            [2, 0], [4, 2], [3, 2], [3, 6],
+            [1, 6], [1, 2], [0, 2], [2, 0],
+        ];
+    }
 
     canvas_ctx.beginPath();
-    canvas_ctx.arc(
-        palette_center_x,
-        palette_center_y,
-        palette_touch_radious,
-        0, pi * 2);
-    canvas_ctx.fillStyle = 'black';
+    canvas_ctx.moveTo(base_x + vertices[0][0] * unit, base_y + vertices[0][1] * unit);
+    for (let i = 1; i < vertices.length; i++) {
+        let vx = vertices[i][0];
+        let vy = vertices[i][1];
+        canvas_ctx.lineTo(base_x + vx * unit, base_y + vy * unit);
+    }
     canvas_ctx.closePath();
+    canvas_ctx.fillStyle = 'rgba(255, 255, 255, 30%)';
+    canvas_ctx.strokeStyle = 'gray';
     canvas_ctx.fill();
+    canvas_ctx.stroke();
+}
+
+
+function draw_tutor_arrow_palette () {
+    var unit = winsize / 20;
+
+    var base_x = (winwidth - unit * 7) / 2;
+    var base_y = (winheight - unit * 7) / 2;
+
+    var vertices = [
+        [0, 0], [3, 0], [2, 1], [6, 5],
+        [7, 4], [7, 7], [4, 7], [5, 6],
+        [1, 2], [0, 3], [0, 0],
+    ];
+
+    canvas_ctx.beginPath();
+    canvas_ctx.moveTo(base_x + vertices[0][0] * unit, base_y + vertices[0][1] * unit);
+    for (let i = 1; i < vertices.length; i++) {
+        let vx = vertices[i][0];
+        let vy = vertices[i][1];
+        canvas_ctx.lineTo(base_x + vx * unit, base_y + vy * unit);
+    }
+    canvas_ctx.closePath();
+    canvas_ctx.fillStyle = 'rgba(255, 255, 255, 30%)';
+    canvas_ctx.strokeStyle = 'gray';
+    canvas_ctx.fill();
+    canvas_ctx.stroke();
+}
+
+
+function draw_skip_ind () {
+    canvas_ctx.fillStyle = 'rgba(255, 255, 255, 50%)';
+    canvas_ctx.textBaseline = 'top';
+    canvas_ctx.font = tutor_skip_font;
+    canvas_ctx.fillText(tutor_skip_text, 5, 5);
 }
 
 
@@ -444,7 +569,17 @@ function draw_animation_frame () {
 
     // Only show palette on touch screens
     if ('ontouchstart' in document.documentElement) {
-        draw_palette_touch_ind();
+        if (tutor && !tutor.wait) {
+            tutor.cooldown_clock += (tutor.cooldown_clock < tutor_cooldown_time);
+
+            if (tutor.cooldown_clock >= tutor_cooldown_time) {
+                tutor.show();
+            }
+        }
+
+        if (!tutor) {
+            draw_palette_touch_ind();
+        }
 
         if (palette.state == PaletteState.charging) {
             palette.charging_clock += 1;
@@ -531,7 +666,7 @@ function rotating_delta_to_hue_delta (rotating_delta) {
 }
 
 
-function show_user_manual () {
+function show_user_manual_console () {
     let ctrl = [
         ['[Keyboard Control (for PC)]'],
         ['v', 'enable verbose log'],
@@ -572,18 +707,17 @@ function array_last (ary) {
 function update_win_size () {
     winwidth = new_winwidth;
     winheight = new_winheight;
+    winsize = Math.min(winwidth, winheight)
 
-    let s = Math.min(winwidth, winheight)
-
-    zoom_ratio = s / ring_radius;
+    zoom_ratio = winsize / ring_radius;
 
     canvas_ctx.canvas.width  = winwidth;
     canvas_ctx.canvas.height = winheight;
 
-    palette_center_x = s / 5;
-    palette_center_y = winheight - (s / 5);
+    palette_center_x = winsize / 5;
+    palette_center_y = winheight - (winsize / 5);
 
-    palette_touch_radious = s / 10;
+    palette_touch_radious = winsize / 10;
     palette_hue_inner_radius = palette_touch_radious * 2;
     palette_hue_outer_radius = palette_touch_radious * 3;
     palette_curr_hue_ind_thickness = (palette_touch_radious + palette_hue_inner_radius) / 2;
@@ -604,12 +738,20 @@ function toggle_aperture () {
     tube.aperture = !tube.aperture;
     tube.aperture_gen_clock = tube.aperture_interval;
     log('aperture', tube.aperture ? 'enabled' : 'disabled');
+
+    if (tutor) {
+        tutor.checked.aperture = true;
+    }
 }
 
 
 function toggle_breaking () {
     tube.breaking = !tube.breaking;
     log('breaking:', tube.breaking);
+
+    if (tutor && !tube.breaking) {
+        tutor.checked.move = true;
+    }
 }
 
 
@@ -618,6 +760,14 @@ function tube_twist (twist_dir_delta) {
 
     if (-1 <= new_tube_twist_dir && new_tube_twist_dir <= 1) {
         tube.twist_dir = new_tube_twist_dir;
+
+        if (tutor) {
+            if (tube.twist_dir < 0) {
+                tutor.checked.twist_left = true;
+            } else if (tube.twist_dir > 0) {
+                tutor.checked.twist_right = true;
+            }
+        }
     }
 }
 
@@ -711,6 +861,10 @@ function touchstart (e) {
 
     if (Object.keys(ongoing_gestures).length == 1 && finished_gestures.length == 0) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
+
+        if (tutor && touches[0].clientX < palette_touch_radious && touches[0].clientY < palette_touch_radious) {
+            tutor = undefined;
+        }
     }
 
     if (palette.state == PaletteState.idle || palette.state == PaletteState.discharging) {
@@ -745,8 +899,11 @@ function touchstart (e) {
         palette.rotating_from_y = touches[0].clientY;
         palette.rotating_to_x = palette.rotating_from_x;
         palette.rotating_to_y = palette.rotating_from_y;
+    }
 
-    } else if (palette.state == PaletteState.discharging) {
+    if (tutor && palette.state == PaletteState.idle) {
+        tutor.wait = true;
+        tutor.cooldown_clock = 0;
     }
 }
 
@@ -782,11 +939,17 @@ function touchmove (e) {
     if (Object.keys(ongoing_gestures).length == 1 && finished_gestures.length == 0) {
         [mouse.origin_x, mouse.origin_y] = browser_event_to_my_coord(touches[0]);
     }
+
+    if (tutor && palette.state == PaletteState.idle) {
+        tutor.wait = true;
+        tutor.cooldown_clock = 0;
+    }
 }
 
 
 function touchcancel (e) {
     e.preventDefault();
+
     let touches = e.changedTouches;
 
     for (let i = 0; i < touches.length; i++) {
@@ -800,11 +963,17 @@ function touchcancel (e) {
             palette.rotating_touch = undefined;
         }
     }
+
+    if (tutor) {
+        tutor.wait = false;
+        tutor.cooldown_clock = 0;
+    }
 }
 
 
 function touchend (e) {
     e.preventDefault();
+
     let touches = e.changedTouches;
 
     for (let i = 0; i < touches.length; i++) {
@@ -849,6 +1018,11 @@ function touchend (e) {
             mouse.origin_x = 0;
             mouse.origin_y = 0;
         }
+
+        if (tutor) {
+            tutor.wait = false;
+            tutor.cooldown_clock = 0;
+        }
     }
 }
 
@@ -887,7 +1061,7 @@ window.onload = function () {
 
     update_win_size();
 
-    show_user_manual();
+    show_user_manual_console();
 
     draw_animation_frame();
 };
