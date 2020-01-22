@@ -486,22 +486,18 @@ function draw_tutor () {
     if (!tutor.checked.move) {
         draw_tutor_arrow_swipe(true, true);
         draw_tutor_arrow_swipe(false, true);
-        draw_skip_ind();
 
     } else if (!tutor.checked.aperture) {
         draw_tutor_arrow_swipe(true, false);
         draw_tutor_arrow_swipe(false, false);
-        draw_skip_ind();
 
     } else if (!tutor.checked.twist_left) {
         draw_tutor_arrow_swipe(true, true);
         draw_tutor_arrow_swipe(false, false);
-        draw_skip_ind();
 
     } else if (!tutor.checked.twist_right) {
         draw_tutor_arrow_swipe(true, false);
         draw_tutor_arrow_swipe(false, true);
-        draw_skip_ind();
 
     } else if (!tutor.checked.hue) {
         if (tutor.clock < tutor_animation_cooldown_time &&
@@ -517,6 +513,8 @@ function draw_tutor () {
     } else {
         tutor = undefined;
     }
+
+    draw_skip_ind();
 }
 
 
