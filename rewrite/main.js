@@ -327,6 +327,24 @@ function draw_palette_touch_ind () {
         canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
         canvas_ctx.fill();
 
+        let needle_base_x = palette_center_x + palette_hue_outer_radius * 0.73;
+        let needle_base_y = palette_center_y - palette_hue_outer_radius * 0.73;
+        canvas_ctx.beginPath();
+        canvas_ctx.moveTo(
+            needle_base_x,
+            needle_base_y,
+        );
+        canvas_ctx.lineTo(
+            needle_base_x,
+            needle_base_y - (th - palette_touch_radious),
+        );
+        canvas_ctx.lineTo(
+            needle_base_x + (th - palette_touch_radious),
+            needle_base_y,
+        );
+        canvas_ctx.fillStyle = 'hsl(' + tube.hue + ', 100%, 50%, ' + palette_hue_ring_opacity + ')';
+        canvas_ctx.fill();
+
     } else if (palette.state == PaletteState.charging) {
         canvas_ctx.beginPath();
         canvas_ctx.arc(
