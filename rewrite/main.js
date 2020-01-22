@@ -32,9 +32,11 @@ const PaletteState = Object.freeze({
     discharging: 3,
 });
 
-const tutor_cooldown_time = 80;
 const tutor_skip_font = '20px serif';
 const tutor_skip_text = 'Skip»';
+const tutor_animation_cooldown_time = 80;
+const tutor_animation_cycle_length = 100;
+const tutor_animation_ratio = 0.5;
 
 
 // Semi-constants:
@@ -84,54 +86,16 @@ var tube = {
 };
 tube.aperture_interval = Math.floor(tube.max_z * 1.5);
 
-let tutor = (function () {
-    let checked = {
+let tutor = {
+    clock: 0,
+    checked: {
         move: false,
         aperture: false,
         twist_left: false,
         twist_right: false,
         hue: false,
-    };
-
-    let show = function () {
-        if (!checked.move) {
-            draw_tutor_arrow_swipe(true, true);
-            draw_tutor_arrow_swipe(false, true);
-            draw_skip_ind();
-
-        } else if (!checked.aperture) {
-            draw_tutor_arrow_swipe(true, false);
-            draw_tutor_arrow_swipe(false, false);
-            draw_skip_ind();
-
-        } else if (!checked.twist_left) {
-            draw_tutor_arrow_swipe(true, true);
-            draw_tutor_arrow_swipe(false, false);
-            draw_skip_ind();
-
-        } else if (!checked.twist_right) {
-            draw_tutor_arrow_swipe(true, false);
-            draw_tutor_arrow_swipe(false, true);
-            draw_skip_ind();
-
-        } else if (!checked.hue) {
-            draw_palette_touch_ind();
-            if (palette.state == PaletteState.activated) {
-                draw_tutor_arrow_palette();
-            }
-
-        } else {
-            tutor = undefined;
-        }
-    };
-
-    return {
-        cooldown_clock: 0,
-        checked: checked,
-        show: show,
-        wait: false,
-    }
-})();
+    },
+};
 
 let ongoing_gestures = {}
 let finished_gestures = [];
@@ -293,6 +257,10 @@ function draw_ring (ring) {
 
 
 function draw_palette_touch_ind () {
+    if (tutor && tutor.clock < tutor_animation_cooldown_time) {
+        return;
+    }
+
     if (palette.state == PaletteState.idle || palette.state == PaletteState.discharging) {
         canvas_ctx.beginPath();
         canvas_ctx.arc(
@@ -422,7 +390,11 @@ function draw_palette_hue_ring () {
 
 
 function draw_tutor_arrow_swipe (left, down) {
-    var unit = winsize / 20;
+    if (tutor && tutor.clock < tutor_animation_cooldown_time) {
+        return;
+    }
+
+    let unit = winsize / 20;
 
     if (left) {
         var base_x = (winwidth / 2 - unit * 4) / 2;
@@ -430,17 +402,21 @@ function draw_tutor_arrow_swipe (left, down) {
         var base_x = winwidth / 2 + (winwidth / 2 - unit * 4) / 2;
     }
 
-    var base_y = winheight / 2 - unit * 4;
+    let base_y = winheight / 2 - unit * 4;
+    let ani_ratio = (tutor.clock - tutor_animation_cooldown_time) / tutor_animation_cycle_length / tutor_animation_ratio;
+    ani_ratio = ani_ratio > 1 ? 1 : ani_ratio;
+
+    let r = 4 * ani_ratio;
 
     if (down) {
         var vertices = [
-            [2, 6], [0, 4], [1, 4], [1, 0],
-            [3, 0], [3, 4], [4, 4], [2, 6],
+            [2, 4 + r], [0, 2 + r], [1, 2 + r], [1, 0],
+            [3, 0], [3, 2 + r], [4, 2 + r], [2, 4 + r],
         ];
     } else {
         var vertices = [
-            [2, 0], [4, 2], [3, 2], [3, 6],
-            [1, 6], [1, 2], [0, 2], [2, 0],
+            [2, 4 - r], [4, 6 - r], [3, 6 - r], [3, 8],
+            [1, 8], [1, 6 - r], [0, 6 - r], [2, 4 - r],
         ];
     }
 
@@ -460,15 +436,22 @@ function draw_tutor_arrow_swipe (left, down) {
 
 
 function draw_tutor_arrow_palette () {
-    var unit = winsize / 20;
+    if (!tutor) { return }
+
+    var unit = winsize / 20 * 1.4;
 
     var base_x = (winwidth - unit * 7) / 2;
     var base_y = (winheight - unit * 7) / 2;
 
+    let ani_ratio = (tutor.clock - tutor_animation_cooldown_time) / tutor_animation_cycle_length / tutor_animation_ratio;
+    ani_ratio = ani_ratio > 1 ? 1 : ani_ratio;
+
+    let r = 3 * ani_ratio;
+
     var vertices = [
-        [0, 0], [3, 0], [2, 1], [6, 5],
-        [7, 4], [7, 7], [4, 7], [5, 6],
-        [1, 2], [0, 3], [0, 0],
+        [3 - r, 3 - r], [6 - r, 3 - r], [5 - r, 4 - r],
+        [7, 6], [6, 7],
+        [4 - r, 5 - r], [3 - r, 6 - r], [3 - r, 3 - r],
     ];
 
     canvas_ctx.beginPath();
@@ -491,6 +474,49 @@ function draw_skip_ind () {
     canvas_ctx.textBaseline = 'top';
     canvas_ctx.font = tutor_skip_font;
     canvas_ctx.fillText(tutor_skip_text, 5, 5);
+}
+
+
+function draw_tutor () {
+    if (!tutor) { return }
+    // if (tutor.clock < tutor_animation_cooldown_time) {
+    //     return;
+    // }
+
+    if (!tutor.checked.move) {
+        draw_tutor_arrow_swipe(true, true);
+        draw_tutor_arrow_swipe(false, true);
+        draw_skip_ind();
+
+    } else if (!tutor.checked.aperture) {
+        draw_tutor_arrow_swipe(true, false);
+        draw_tutor_arrow_swipe(false, false);
+        draw_skip_ind();
+
+    } else if (!tutor.checked.twist_left) {
+        draw_tutor_arrow_swipe(true, true);
+        draw_tutor_arrow_swipe(false, false);
+        draw_skip_ind();
+
+    } else if (!tutor.checked.twist_right) {
+        draw_tutor_arrow_swipe(true, false);
+        draw_tutor_arrow_swipe(false, true);
+        draw_skip_ind();
+
+    } else if (!tutor.checked.hue) {
+        if (tutor.clock < tutor_animation_cooldown_time &&
+                (palette.state == PaletteState.charging ||
+                palette.state == PaletteState.activated)) {
+            tutor.clock = tutor_animation_cooldown_time;
+        }
+        draw_palette_touch_ind();
+        if (palette.state == PaletteState.activated) {
+            draw_tutor_arrow_palette();
+        }
+
+    } else {
+        tutor = undefined;
+    }
 }
 
 
@@ -587,12 +613,13 @@ function draw_animation_frame () {
 
     // Only show palette on touch screens
     if ('ontouchstart' in document.documentElement) {
-        if (tutor && !tutor.wait) {
-            tutor.cooldown_clock += (tutor.cooldown_clock < tutor_cooldown_time);
-
-            if (tutor.cooldown_clock >= tutor_cooldown_time) {
-                tutor.show();
+        if (tutor) {
+            tutor.clock += 1;
+            if (tutor.clock >= tutor_animation_cycle_length + tutor_animation_cooldown_time) {
+                tutor.clock = tutor_animation_cooldown_time;
             }
+
+            draw_tutor();
         }
 
         if (!tutor) {
@@ -604,6 +631,9 @@ function draw_animation_frame () {
 
             if (palette.charging_clock >= palette_charge_time) {
                 palette.state = PaletteState.activated;
+                if (tutor) {
+                    tutor.clock = tutor_animation_cooldown_time;
+                }
             }
         } else if (palette.state == PaletteState.activated) {
             if (palette.pop_out_ratio < 5) {
@@ -780,9 +810,9 @@ function tube_twist (twist_dir_delta) {
         tube.twist_dir = new_tube_twist_dir;
 
         if (tutor) {
-            if (tube.twist_dir < 0) {
+            if (twist_dir_delta < 0) {
                 tutor.checked.twist_left = true;
-            } else if (tube.twist_dir > 0) {
+            } else if (twist_dir_delta > 0) {
                 tutor.checked.twist_right = true;
             }
         }
@@ -904,6 +934,9 @@ function touchstart (e) {
                 palette.state = PaletteState.charging;
             } else {
                 palette.state = PaletteState.activated;
+                if (tutor) {
+                    tutor.clock = tutor_animation_cooldown_time;
+                }
             }
         }
 
@@ -920,8 +953,7 @@ function touchstart (e) {
     }
 
     if (tutor && palette.state == PaletteState.idle) {
-        tutor.wait = true;
-        tutor.cooldown_clock = 0;
+        tutor.clock = 0;
     }
 }
 
@@ -959,8 +991,7 @@ function touchmove (e) {
     }
 
     if (tutor && palette.state == PaletteState.idle) {
-        tutor.wait = true;
-        tutor.cooldown_clock = 0;
+        tutor.clock = 0;
     }
 }
 
@@ -983,8 +1014,7 @@ function touchcancel (e) {
     }
 
     if (tutor) {
-        tutor.wait = false;
-        tutor.cooldown_clock = 0;
+        tutor.clock = 0;
     }
 }
 
@@ -1038,8 +1068,7 @@ function touchend (e) {
         }
 
         if (tutor) {
-            tutor.wait = false;
-            tutor.cooldown_clock = 0;
+            tutor.clock = 0;
         }
     }
 }
